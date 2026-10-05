@@ -32,6 +32,10 @@ export default function App() {
     return (
       <div className="login">
         <div className="login-card">
+          <div className="login-logos">
+            <img src="/img/agscr.png" alt="Asociación de Guías y Scouts de Costa Rica" />
+            <img src="/img/tropa-circulo.png" alt="Sección Tropa" />
+          </div>
           <h1>Tropa 307</h1>
           <p>Puntajes por patrulla y expedientes de protagonistas</p>
           <button className="btn primary" onClick={() => signInWithPopup(auth, googleProvider)}>
@@ -63,7 +67,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">Tropa 307</div>
+        <div className="brand">
+          <img src="/img/agscr-blanco.png" alt="AGSCR" />
+          <div><b>Tropa 307</b><small>Guías y Scouts de Costa Rica</small></div>
+        </div>
         <nav className="tabs">
           {TABS.map((t) => (
             <button key={t.key} className={tab === t.key ? 'tab active' : 'tab'}

@@ -3,7 +3,7 @@ import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestor
 import { db } from '../firebase';
 import { useCollection } from '../lib/useCollection';
 
-const VACIA = { nombre: '', color: '#1f3864', lema: '' };
+const VACIA = { nombre: '', color: '#04bc99', lema: '' };
 
 export default function Patrullas() {
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
@@ -55,7 +55,7 @@ export default function Patrullas() {
                 <div className="muted">{miembros.map((m) => `${m.nombre}${m.cargo && m.cargo !== 'Integrante' ? ` (${m.cargo})` : ''}`).join(', ')}</div>
               </div>
               <div className="row">
-                <button className="btn small" onClick={() => { setEditando(p.id); setForm({ nombre: p.nombre, color: p.color || '#1f3864', lema: p.lema || '' }); }}>Editar</button>
+                <button className="btn small" onClick={() => { setEditando(p.id); setForm({ nombre: p.nombre, color: p.color || '#04bc99', lema: p.lema || '' }); }}>Editar</button>
                 <button className="btn small danger" onClick={() => borrar(p)}>Borrar</button>
               </div>
             </div>
