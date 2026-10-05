@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Acceso exclusivo del Jefe de Grupo.
+// Contiene datos personales y médicos de personas menores de edad:
+// NO abrir estas reglas a otros usuarios sin revisar la protección de datos (Ley 8968).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function esJefeDeGrupo() {
+      return request.auth != null
+        && request.auth.token.email == 'german.gs19@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /{document=**} {
+      allow read, write: if esJefeDeGrupo();
+    }
+  }
+}
