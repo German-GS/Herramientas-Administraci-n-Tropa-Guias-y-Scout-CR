@@ -96,3 +96,38 @@ input[type=color] { padding: 2px; height: 38px; }
   .content::before { content: ""; display: block; height: 70px; margin-bottom: 8px; background: url(/img/agscr.png) left center / contain no-repeat; }
   .card { box-shadow: none; border: 1px solid #ccc; }
 }
+
+/* Login formal */
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: #ebe9f5; border-radius: 10px; padding: 3px; margin: 1rem 0 .8rem; }
+.seg button { border: 0; background: transparent; padding: .5rem; border-radius: 8px; cursor: pointer; font: inherit; color: var(--muted); }
+.seg button.on { background: #fff; color: var(--navy); font-weight: 700; box-shadow: 0 1px 3px rgba(44,18,97,.18); }
+.login-form { display: grid; gap: .7rem; text-align: left; }
+.login-form label { margin: 0; }
+.btn.block { display: block; width: 100%; padding: .65rem 1rem; font-size: 1rem; }
+.link { background: none; border: 0; color: var(--tropa-dark); cursor: pointer; font: inherit; font-size: .88rem; margin-top: .8rem; text-decoration: underline; }
+.ok { color: var(--tropa-dark); font-size: .88rem; margin: 0; }
+.error { font-size: .88rem; margin: 0; }
+.item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .6rem 0; border-bottom: 1px solid var(--line); }
+
+/* Responsive */
+@media (max-width: 720px) {
+  .content { padding: .6rem; }
+  .card { padding: .8rem; border-radius: 10px; }
+  .topbar { padding: .45rem .6rem 0; gap: .4rem; }
+  .brand img { height: 34px; }
+  .brand small { display: none; }
+  .salir { margin-left: auto; }
+  .tabs { order: 3; flex-basis: 100%; margin: 0 -.6rem; padding: 0 .6rem; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: .6rem .75rem; }
+  .grid.stats { grid-template-columns: 1fr 1fr; }
+  .stat .n { font-size: 1.4rem; }
+  h2 { font-size: 1.15rem; }
+  .form { grid-template-columns: 1fr; }
+  .btn { padding: .6rem .9rem; min-height: 40px; }
+  .btn.small { min-height: 34px; }
+  input, select, textarea { font-size: 16px; } /* evita el zoom automático en iPhone */
+  .row > input:not([type=checkbox]) { max-width: none; flex: 1 1 100%; }
+  th, td { padding: .45rem .4rem; font-size: .85rem; }
+  .login-card { padding: 1.5rem 1.2rem; }
+}

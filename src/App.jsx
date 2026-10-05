@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider, ALLOWED_EMAIL } from './firebase';
+import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
+import { auth } from './firebase';
+import { useAcceso } from './lib/useAcceso';
+import Login from './Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Patrullas from './pages/Patrullas.jsx';
 import Protagonistas from './pages/Protagonistas.jsx';
 import Reuniones from './pages/Reuniones.jsx';
 import PuntosExtra from './pages/PuntosExtra.jsx';
 import Ciclos from './pages/Ciclos.jsx';
+import Dirigentes from './pages/Dirigentes.jsx';
 import Ajustes from './pages/Ajustes.jsx';
 
 const TABS = [
@@ -16,49 +19,73 @@ const TABS = [
   { key: 'ciclos', label: 'Puntaje final', comp: Ciclos },
   { key: 'protagonistas', label: 'Expedientes', comp: Protagonistas },
   { key: 'patrullas', label: 'Patrullas', comp: Patrullas },
+  { key: 'dirigentes', label: 'Dirigentes', comp: Dirigentes, soloJefe: true },
   { key: 'ajustes', label: 'Ajustes', comp: Ajustes },
 ];
 
+function Aviso({ titulo, children }) {
+  return (
+    <div className="login">
+      <div className="login-card">
+        <div className="login-logos">
+          <img src="/img/agscr.png" alt="" />
+          <img src="/img/tropa-circulo.png" alt="" />
+        </div>
+        <h1>{titulo}</h1>
+        {children}
+        <button className="link" onClick={() => signOut(auth)}>Salir</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined);
+  const [, refrescar] = useState(0);
   const [tab, setTab] = useState('inicio');
   const [abrirExpediente, setAbrirExpediente] = useState(null);
+  const [aviso, setAviso] = useState('');
+  const acceso = useAcceso(user);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
   if (user === undefined) return <div className="center">Cargando…</div>;
+  if (!user) return <Login />;
 
-  if (!user) {
+  if (!user.emailVerified) {
+    const yaVerifique = async () => {
+      await user.reload();
+      await user.getIdToken(true); // renueva el token para que las reglas vean el correo verificado
+      refrescar((n) => n + 1);
+    };
+    const reenviar = async () => {
+      try { await sendEmailVerification(user); setAviso('Te reenviamos el correo de verificación.'); }
+      catch { setAviso('Esperá un momento antes de pedir otro correo.'); }
+    };
     return (
-      <div className="login">
-        <div className="login-card">
-          <div className="login-logos">
-            <img src="/img/agscr.png" alt="Asociación de Guías y Scouts de Costa Rica" />
-            <img src="/img/tropa-circulo.png" alt="Sección Tropa" />
-          </div>
-          <h1>Tropa 307</h1>
-          <p>Puntajes por patrulla y expedientes de protagonistas</p>
-          <button className="btn primary" onClick={() => signInWithPopup(auth, googleProvider)}>
-            Entrar con Google
-          </button>
-        </div>
-      </div>
+      <Aviso titulo="Confirmá tu correo">
+        <p>Enviamos un enlace de verificación a <strong>{user.email}</strong>. Abrilo (revisá también el spam) y luego tocá el botón.</p>
+        <button className="btn primary block" onClick={yaVerifique}>Ya confirmé mi correo</button>
+        <button className="btn block" style={{ marginTop: 8 }} onClick={reenviar}>Reenviar correo</button>
+        {aviso && <p className="muted">{aviso}</p>}
+      </Aviso>
     );
   }
 
-  if (ALLOWED_EMAIL && user.email?.toLowerCase() !== ALLOWED_EMAIL) {
+  if (acceso === 'cargando') return <div className="center">Cargando…</div>;
+
+  if (acceso === 'pendiente') {
     return (
-      <div className="login">
-        <div className="login-card">
-          <h1>Acceso restringido</h1>
-          <p>La cuenta {user.email} no está autorizada.</p>
-          <button className="btn" onClick={() => signOut(auth)}>Salir</button>
-        </div>
-      </div>
+      <Aviso titulo="Acceso pendiente">
+        <p>Tu cuenta <strong>{user.email}</strong> está creada y verificada, pero el Jefe de Grupo todavía no autoriza tu acceso.</p>
+        <p className="muted">Pedile que te agregue en la pestaña «Dirigentes» y luego recargá esta página.</p>
+      </Aviso>
     );
   }
 
-  const Actual = TABS.find((t) => t.key === tab).comp;
+  const esJefe = acceso === 'jefe';
+  const tabs = TABS.filter((t) => !t.soloJefe || esJefe);
+  const Actual = (tabs.find((t) => t.key === tab) || tabs[0]).comp;
   const irAExpediente = (id) => {
     setAbrirExpediente(id);
     setTab('protagonistas');
@@ -71,19 +98,19 @@ export default function App() {
           <img src="/img/agscr-blanco.png" alt="AGSCR" />
           <div><b>Tropa 307</b><small>Guías y Scouts de Costa Rica</small></div>
         </div>
+        <button className="btn small ghost salir" onClick={() => signOut(auth)} title={user.email}>Salir</button>
         <nav className="tabs">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button key={t.key} className={tab === t.key ? 'tab active' : 'tab'}
               onClick={() => { setTab(t.key); if (t.key !== 'protagonistas') setAbrirExpediente(null); }}>
               {t.label}
             </button>
           ))}
         </nav>
-        <button className="btn small ghost" onClick={() => signOut(auth)}>Salir</button>
       </header>
       <main className="content">
         <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
-          limpiarExpediente={() => setAbrirExpediente(null)} />
+          limpiarExpediente={() => setAbrirExpediente(null)} esJefe={esJefe} />
       </main>
     </div>
   );

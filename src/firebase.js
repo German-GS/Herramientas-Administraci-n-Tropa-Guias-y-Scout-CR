@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -13,6 +13,8 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+auth.languageCode = 'es';
 export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
-export const ALLOWED_EMAIL = (import.meta.env.VITE_ALLOWED_EMAIL || '').toLowerCase();
+// Correo del Jefe de Grupo: acceso total y quien autoriza a los demás dirigentes
+// (debe coincidir con firestore.rules)
+export const JEFE_EMAIL = (import.meta.env.VITE_ALLOWED_EMAIL || '').toLowerCase();
