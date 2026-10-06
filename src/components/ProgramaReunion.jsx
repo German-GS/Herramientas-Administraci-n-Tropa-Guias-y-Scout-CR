@@ -22,15 +22,17 @@ export default function ProgramaReunion({ r }) {
         <thead><tr><th>Hora</th><th>Actividad</th><th>Materiales</th><th>Encargado</th></tr></thead>
         <tbody>
           {acts.map((a, i) => (
-            <tr key={i}><td>{horaCorta(a.hora)}</td><td>{a.actividad}{tipoL(a.tipo) && <small className="tipo-doc"> · {tipoL(a.tipo)}</small>}</td><td>{a.materiales || '—'}</td><td>{a.encargado}</td></tr>
+            <tr key={i}><td>{horaCorta(a.hora)}</td><td>{a.actividad}{tipoL(a.tipo) && <small className="tipo-doc"> · {tipoL(a.tipo)}{a.complejidad ? ` (${a.complejidad})` : ''}</small>}</td><td>{a.materiales || '—'}</td><td>{a.encargado}</td></tr>
           ))}
         </tbody>
       </table>
 
-      {detalle.length > 0 && <h2>Ayuda al programa</h2>}
+      {(detalle.length > 0 || r.notaEntorno) && <h2>Ayuda al programa</h2>}
+      {r.notaEntorno && <p><b>Nota de entorno seguro:</b> {r.notaEntorno}</p>}
       {detalle.map((a, i) => (
         <section key={i} className="doc-act">
           <h3>{a.actividad}</h3>
+          {(a.duracion || a.encargado) && <p><b>Duración:</b> {a.duracion ? `${a.duracion} min` : '—'} &nbsp; <b>Encargado:</b> {a.encargado}</p>}
           {a.materiales && <p><b>Materiales:</b> {a.materiales}</p>}
           {a.montaje && <p><b>Montaje:</b> {a.montaje}</p>}
           {a.dinamica && <p><b>La dinámica:</b> {a.dinamica}</p>}

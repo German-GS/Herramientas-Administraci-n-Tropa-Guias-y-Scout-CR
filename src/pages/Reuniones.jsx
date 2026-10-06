@@ -14,6 +14,7 @@ const FILAS_BASE = () => [
 ].map((a) => ({ ...a, id: nuevoId(), montaje: '', dinamica: '', variante: '', reto: '' }));
 const porHora = (a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99');
 import TablaEditable from '../components/TablaEditable.jsx';
+import { importarMachote } from '../lib/importarMachote';
 import ProgramaReunion from '../components/ProgramaReunion.jsx';
 
 function cicloDeFecha(ciclos, fecha) {
@@ -26,26 +27,68 @@ export default function Reuniones() {
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
   const [sel, setSel] = useState(null);
   const [copia, setCopia] = useState(null);
+  const [avisos, setAvisos] = useState(null);
+  const [importando, setImportando] = useState(false);
+  const [errorImp, setErrorImp] = useState('');
   const [config] = useConfig();
+
+  const importar = async (e) => {
+    const archivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!archivo) return;
+    setImportando(true); setErrorImp('');
+    try {
+      const { datos, avisos: av } = await importarMachote(await archivo.arrayBuffer(), ciclos);
+      const lleno = Object.fromEntries(Object.entries(datos).filter(([, v]) => v !== ''));
+      lleno.actividades = (lleno.actividades || []).map((a) => ({ ...a, encargado: a.encargado || lleno.encargado || '' }));
+      setCopia({ ...lleno, fecha: lleno.fecha || hoyISO() });
+      setAvisos(av);
+      setSel('nueva');
+    } catch (err) {
+      setErrorImp(err.message || 'No se pudo leer el archivo.');
+    } finally { setImportando(false); }
+  };
 
   if (sel) {
     const r = sel === 'nueva' ? null : reuniones.find((x) => x.id === sel);
     return <EditorReunion key={sel + (copia ? 'c' : '')} r={r} base={copia} patrullas={patrullas} ciclos={ciclos}
-      onCerrar={() => { setSel(null); setCopia(null); }} />;
+      avisos={avisos} onCerrar={() => { setSel(null); setCopia(null); setAvisos(null); }} />;
   }
 
   const duplicar = (r) => {
     const { id, puntajes, juegos, asistencia, inspeccion, fecha, ...resto } = r;
     setCopia({ ...resto, fecha: hoyISO() });
+    setAvisos(null);
     setSel('nueva');
   };
 
   const lista = [...reuniones].reverse();
   return (
+    <>
+    <div className="card leyenda">
+      <h2>Planificá con el machote oficial</h2>
+      <p>
+        Cada programa de reunión se arma con el <strong>machote de Word</strong> del Grupo, que mantiene siempre las mismas secciones,
+        campos y tipos de actividad. Así todas las reuniones quedan ordenadas y el sistema puede leerlas por completo.
+      </p>
+      <ol>
+        <li><strong>Descargá el machote</strong> y llenalo, vos o con la herramienta de IA de tu confianza. No cambies las secciones, los nombres de los campos ni los 6 tipos de actividad.</li>
+        <li><strong>Subí el Word ya completo.</strong> El sistema llena la reunión: fecha y horario, cronograma con sus tipos, ayuda al programa, insumos y anexos.</li>
+        <li><strong>Revisá, ajustá y guardá.</strong> Después de la reunión registrás la asistencia, la inspección y los puntajes por patrulla.</li>
+      </ol>
+      <div className="row">
+        <a className="btn" href="/machote/Machote_Reunion_Tropa_307.docx" download>⬇ Descargar machote (Word)</a>
+        <label className="btn primary" style={{ cursor: 'pointer', margin: 0 }}>
+          {importando ? 'Leyendo el documento…' : '⬆ Subir machote lleno'}
+          <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={importar} disabled={importando} hidden />
+        </label>
+      </div>
+      {errorImp && <p className="error" role="alert">{errorImp}</p>}
+    </div>
     <div className="card">
       <div className="row between">
         <h2>Reuniones</h2>
-        <button className="btn primary" onClick={() => { setCopia(null); setSel('nueva'); }}>+ Nuevo programa de reunión</button>
+        <button className="btn primary" onClick={() => { setCopia(null); setAvisos(null); setSel('nueva'); }}>+ Programa en blanco</button>
       </div>
       {lista.length === 0 ? <p className="empty">Todavía no hay reuniones. Creá el programa de la próxima.</p> : (
         <div className="table-wrap">
@@ -66,6 +109,7 @@ export default function Reuniones() {
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -77,7 +121,7 @@ const SECCIONES = [
   ['puntajes', 'Puntajes'],
 ];
 
-function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
+function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
   const { col, ref, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
@@ -178,6 +222,13 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
         <button type="button" className="btn" onClick={onCerrar}>← Volver</button>
       </div>
 
+      {avisos && (
+        <div className={avisos.length ? 'alert media' : 'alert info'} role="status">
+          <strong>Programa importado desde Word.</strong> Revisá los datos y guardá la reunión.
+          {avisos.length > 0 && <ul style={{ margin: '.4rem 0 0 1rem', padding: 0 }}>{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>}
+        </div>
+      )}
+
       <div className="seg multi">
         {SECCIONES.map(([k, l]) => <button key={k} type="button" className={seccion === k ? 'on' : ''} onClick={() => setSeccion(k)}>{l}</button>)}
       </div>
@@ -223,11 +274,23 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
       {seccion === 'detalle' && (
         <>
           <p className="muted">Explicación de cada actividad para quien la dirige. Inicio, inspección y cierre son siempre iguales y no necesitan ayuda.</p>
+          <div className="form" style={{ marginBottom: 12 }}>
+            <label className="full">Nota de entorno seguro<textarea rows={3} value={f.notaEntorno || ''} placeholder="Revisión del terreno, reglas de contacto, hidratación y riesgos propios de la reunión"
+              onChange={(e) => set('notaEntorno', e.target.value)} /></label>
+          </div>
           {f.actividades.length === 0 && <p className="empty">Primero agregá actividades en el cronograma.</p>}
           {f.actividades.map((a, i) => (
             <fieldset key={i} hidden={ESTANDAR.includes(a.tipo)} style={{ marginBottom: 10 }}>
               <legend>{a.hora ? `${a.hora} · ` : ''}{a.actividad || `Actividad ${i + 1}`}</legend>
               <div className="form">
+                <label>Duración (min)<input type="number" min={1} value={a.duracion || ''} onChange={(e) => setAct(i, 'duracion', e.target.value)} /></label>
+                {a.tipo === 'pasiva' && (
+                  <label>Complejidad
+                    <select value={a.complejidad || ''} onChange={(e) => setAct(i, 'complejidad', e.target.value)}>
+                      <option value="">—</option><option value="simple">Simple (5 min máx.)</option><option value="compleja">Compleja (10 min máx.)</option>
+                    </select>
+                  </label>
+                )}
                 <label className="full">Montaje<textarea rows={2} value={a.montaje || ''} onChange={(e) => setAct(i, 'montaje', e.target.value)} /></label>
                 <label className="full">La dinámica<textarea rows={4} value={a.dinamica || ''} onChange={(e) => setAct(i, 'dinamica', e.target.value)} /></label>
                 <label className="full">Variante<textarea rows={2} value={a.variante || ''} onChange={(e) => setAct(i, 'variante', e.target.value)} /></label>

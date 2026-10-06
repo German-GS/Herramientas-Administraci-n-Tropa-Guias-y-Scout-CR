@@ -228,3 +228,9 @@ fieldset[hidden] { display: none; }
   .asa { width: 100%; text-align: left; background: var(--tropa-soft); color: var(--tropa-dark); padding: .5rem .6rem; }
   .solo-movil { display: inline; }
 }
+
+.leyenda { background: var(--tropa-soft); }
+.leyenda h2 { margin-bottom: .3rem; }
+.leyenda ol { margin: .5rem 0 .9rem 1.2rem; padding: 0; }
+.leyenda li { margin-bottom: .25rem; }
+a.btn { text-decoration: none; display: inline-block; }
