@@ -5,6 +5,7 @@ const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const MESES = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
+const nombreLimpio = (s) => (s || '').replace(/^Actividad\s+(?:activa|pasiva)?\s*\d+\s*:\s*/i, '').trim();
 const vacio = (s) => !s || /^[—–-]+$/.test(s.trim());
 const pendiente = (s) => /\[[^\]]*\]/.test(s || ''); // texto de la plantilla sin reemplazar
 
@@ -29,7 +30,7 @@ async function leerBloques(buffer) {
   for (const el of body.children) {
     if (el.localName === 'p') {
       const t = textoDe(el).replace(/\s+/g, ' ').trim();
-      if (t) bloques.push({ t: 'p', texto: t });
+      if (t) bloques.push({ t: 'p', texto: t, lista: el.getElementsByTagNameNS(W, 'numPr').length > 0 });
     } else if (el.localName === 'tbl') {
       const filas = [...el.getElementsByTagNameNS(W, 'tr')].map((tr) =>
         [...tr.children].filter((c) => c.localName === 'tc')
@@ -63,7 +64,7 @@ function tipoDe(txt) {
   else if (n.includes('juego activo') || n.includes('activa')) tipo = 'activo';
   else if (n.includes('pasiva')) tipo = 'pasiva';
   else if (n.includes('jefe')) tipo = 'jefe';
-  const c = /(simple|compleja)/i.exec(txt || '');
+  const c = /(simple|compleja|manualidad)/i.exec(txt || '');
   return { tipo, complejidad: c ? c[1].toLowerCase() : '' };
 }
 
@@ -78,15 +79,18 @@ export async function importarMachote(buffer, ciclos = []) {
   const d = { lugar: '', fecha: '', horaInicio: '', horaFin: '', encargado: '', participantes: '', objetivo: '', fondo: '', notaEntorno: '', actividades: [], impresos: '', otrosMateriales: '', anexos: [] };
   let cicloTxt = '';
   let sec = 0;
-  let ficha = null; let campo = null; const fichas = [];
+  let ficha = null; let campo = null; const fichas = []; let enCierre = false; const cierreTxt = []; let conexion = '';
   let modo = ''; const impresos = []; let anexo = null; const anexos = [];
 
-  for (const b of bloques) {
+  for (let bi = 0; bi < bloques.length; bi += 1) {
+    const b = bloques[bi];
+    const sig = bloques[bi + 1];
     if (b.t === 'p') {
       const t = b.texto;
       if (/^1\.\s*Programa/i.test(t)) { sec = 1; continue; }
       if (/^2\.\s*Ayuda/i.test(t)) { sec = 2; continue; }
-      if (/^3\.\s*Insumos/i.test(t)) { sec = 3; continue; }
+      if (/^3\.\s*Insumos/i.test(t)) { sec = 3; enCierre = false; continue; }
+      if (/^4\./.test(t)) { sec = 3; continue; } // «4. Puntajes»: el contenido solo se toma si hay un anexo abierto
 
       if (sec === 1) {
         const m = /^(Lugar|Fecha|Hora|Encargado|Participantes|Ciclo|Objetivo|Fondo motivador)\s*:\s*(.*)$/i.exec(t);
@@ -101,14 +105,19 @@ export async function importarMachote(buffer, ciclos = []) {
         else if (k === 'objetivo') d.objetivo = v;
         else d.fondo = v;
       } else if (sec === 2) {
-        const nota = /^Nota de entorno seguro\s*:\s*(.*)$/i.exec(t);
+        const nota = /^Nota de entorno seguro\s*[:.]\s*(.*)$/i.exec(t);
+        const conecta = /^C[oó]mo se conecta con el fondo motivador\s*:\s*(.*)$/i.exec(t);
         const fi = /^Actividad\s+\d+\s*:\s*(.*)$/i.exec(t);
+        const titulo = !/^Tipo\s*:/i.test(t) && sig?.t === 'p' && /^Tipo\s*:/i.test(sig.texto); // cualquier título seguido de «Tipo:»
         if (nota) { if (!pendiente(nota[1])) d.notaEntorno = nota[1].trim(); ficha = null; campo = null; }
-        else if (fi) {
-          ficha = pendiente(fi[1]) ? null : { nombre: fi[1].trim(), duracion: '', encargado: '', materiales: '', montaje: '', dinamica: '', variante: '', reto: '' };
-          campo = null;
+        else if (conecta) { if (!pendiente(conecta[1])) conexion = conecta[1].trim(); ficha = null; campo = null; }
+        else if (fi || titulo) {
+          const nombre = nombreLimpio(fi ? fi[1] : t);
+          ficha = pendiente(nombre) ? null : { nombre, duracion: '', encargado: '', materiales: '', montaje: '', dinamica: '', variante: '', reto: '' };
+          campo = null; enCierre = false;
           if (ficha) fichas.push(ficha);
-        } else if (/^Cierre$/i.test(t)) { ficha = null; campo = null; }
+        } else if (/^Cierre$/i.test(t)) { ficha = null; campo = null; enCierre = true; }
+        else if (enCierre) { if (!pendiente(t)) cierreTxt.push(t); }
         else if (ficha) {
           if (/^Tipo\s*:/i.test(t)) {
             for (const seg of t.split(/[·•]/)) {
@@ -122,7 +131,7 @@ export async function importarMachote(buffer, ciclos = []) {
           } else {
             const et = ETIQUETAS_FICHA.map(([re, k]) => [re.exec(t), k]).find(([m]) => m);
             if (et) { campo = et[1]; ficha[campo] = pendiente(et[0][1]) ? '' : et[0][1].trim(); }
-            else if (campo && !pendiente(t)) ficha[campo] += `${ficha[campo] ? '\n' : ''}${t}`;
+            else if (campo && !pendiente(t)) ficha[campo] += `${ficha[campo] ? '\n' : ''}${b.lista ? '• ' : ''}${t}`;
           }
         }
       } else if (sec === 3) {
@@ -131,7 +140,13 @@ export async function importarMachote(buffer, ciclos = []) {
         if (otros) { if (!pendiente(otros[1])) d.otrosMateriales = otros[1].trim(); modo = 'anexos'; continue; }
         if (/^Agreg[aá] un anexo/i.test(t)) continue;
         if (modo === 'impresos' && /^Anexo\s+[A-Z]/i.test(t)) { if (!pendiente(t)) impresos.push(t); continue; }
-        if (/^Anexo\s+[A-Z]\s*[—–-]/i.test(t)) { anexo = pendiente(t) ? null : { titulo: t, lineas: [] }; if (anexo) anexos.push(anexo); continue; }
+        if (/^Anexo\s+[A-Z]\s*[—–-]/i.test(t)) {
+          if (pendiente(t)) { anexo = null; continue; }
+          const letra = /^Anexo\s+([A-Z])/i.exec(t)[1].toUpperCase();
+          const previo = anexos.find((x) => x.letra === letra);
+          if (previo) { anexo = previo; anexo.lineas.push(`— ${t} —`); } else { anexo = { letra, titulo: t, lineas: [] }; anexos.push(anexo); }
+          continue;
+        }
         if (anexo && !pendiente(t)) anexo.lineas.push(t);
       }
     } else if (b.t === 'tbl') {
@@ -144,7 +159,7 @@ export async function importarMachote(buffer, ciclos = []) {
           const { tipo: tp, complejidad } = tipoDe(tipo);
           if (!tp) avisos.push(`La fila «${act}» tiene un tipo que no reconozco («${tipo}»). Elegí el tipo a mano.`);
           d.actividades.push({
-            id: nuevoId(), hora: hora24(h), actividad: act.trim(), tipo: tp, complejidad,
+            id: nuevoId(), hora: hora24(h), actividad: nombreLimpio(act), tipo: tp, complejidad,
             materiales: pendiente(mat) || vacio(mat) ? '' : mat.trim(), encargado: pendiente(enc) || vacio(enc) ? '' : enc.trim(),
             duracion: '', montaje: '', dinamica: '', variante: '', reto: '',
           });
@@ -159,7 +174,7 @@ export async function importarMachote(buffer, ciclos = []) {
   // Fichas de «Ayuda al programa» → actividades (por nombre; si no, por orden)
   const conFicha = d.actividades.filter((a) => ['activo', 'pasiva', 'jefe'].includes(a.tipo));
   const usadas = new Set();
-  const limpio = (s) => norm(s).replace(/^juego central /, '');
+  const limpio = (s) => norm(nombreLimpio(s)).replace(/^juego central /, '');
   for (const a of conFicha) {
     const f = fichas.find((x) => !usadas.has(x) && (limpio(x.nombre) === limpio(a.actividad) || limpio(a.actividad).includes(limpio(x.nombre)) || limpio(x.nombre).includes(limpio(a.actividad))));
     if (f) { usadas.add(f); Object.assign(a, { duracion: f.duracion, montaje: f.montaje, dinamica: f.dinamica, variante: f.variante, reto: f.reto }); if (!a.materiales) a.materiales = f.materiales; if (!a.encargado) a.encargado = f.encargado; }
@@ -171,6 +186,8 @@ export async function importarMachote(buffer, ciclos = []) {
   }
   for (const a of d.actividades.filter((x) => ['activo', 'pasiva'].includes(x.tipo) && !x.dinamica)) avisos.push(`«${a.actividad}» no tiene ficha con «La dinámica» en la Ayuda al programa.`);
 
+  if (cierreTxt.length) { const c = d.actividades.find((a) => a.tipo === 'cierre'); if (c) c.dinamica = cierreTxt.join('\n'); }
+  if (conexion) d.fondo = `${d.fondo}${d.fondo ? '\n\n' : ''}Cómo se conecta: ${conexion}`;
   d.impresos = impresos.join('\n');
   d.anexos = anexos.map((x) => ({ titulo: x.titulo, texto: x.lineas.join('\n') }));
   const citados = new Set([...d.actividades.map((a) => a.materiales), d.impresos].join(' ').match(/Anexo\s+[A-Z]/gi)?.map((x) => `Anexo ${x.slice(-1).toUpperCase()}`) || []);

@@ -279,7 +279,14 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
               onChange={(e) => set('notaEntorno', e.target.value)} /></label>
           </div>
           {f.actividades.length === 0 && <p className="empty">Primero agregá actividades en el cronograma.</p>}
-          {f.actividades.map((a, i) => (
+          {f.actividades.map((a, i) => (a.tipo === 'cierre' ? (
+            <fieldset key={i} style={{ marginBottom: 10 }}>
+              <legend>Cierre</legend>
+              <label>Algo especial del cierre (opcional)
+                <textarea rows={2} value={a.dinamica || ''} onChange={(e) => setAct(i, 'dinamica', e.target.value)} />
+              </label>
+            </fieldset>
+          ) : (
             <fieldset key={i} hidden={ESTANDAR.includes(a.tipo)} style={{ marginBottom: 10 }}>
               <legend>{a.hora ? `${a.hora} · ` : ''}{a.actividad || `Actividad ${i + 1}`}</legend>
               <div className="form">
@@ -287,7 +294,7 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
                 {a.tipo === 'pasiva' && (
                   <label>Complejidad
                     <select value={a.complejidad || ''} onChange={(e) => setAct(i, 'complejidad', e.target.value)}>
-                      <option value="">—</option><option value="simple">Simple (5 min máx.)</option><option value="compleja">Compleja (10 min máx.)</option>
+                      <option value="">—</option><option value="simple">Simple (5 min máx.)</option><option value="compleja">Compleja (10 min máx.)</option><option value="manualidad">Manualidad (sin límite)</option>
                     </select>
                   </label>
                 )}
@@ -297,7 +304,7 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
                 <label className="full">El reto<textarea rows={2} value={a.reto || ''} onChange={(e) => setAct(i, 'reto', e.target.value)} /></label>
               </div>
             </fieldset>
-          ))}
+          )))}
         </>
       )}
 

@@ -35,11 +35,15 @@ export default function ProgramaReunion({ r }) {
           {(a.duracion || a.encargado) && <p><b>Duración:</b> {a.duracion ? `${a.duracion} min` : '—'} &nbsp; <b>Encargado:</b> {a.encargado}</p>}
           {a.materiales && <p><b>Materiales:</b> {a.materiales}</p>}
           {a.montaje && <p><b>Montaje:</b> {a.montaje}</p>}
-          {a.dinamica && <p><b>La dinámica:</b> {a.dinamica}</p>}
+          {a.dinamica && <p className="pre"><b>La dinámica:</b> {a.dinamica}</p>}
           {a.variante && <p><b>Variante:</b> {a.variante}</p>}
           {a.reto && <p><b>El reto:</b> {a.reto}</p>}
         </section>
       ))}
+
+      {acts.find((a) => a.tipo === 'cierre')?.dinamica && (
+        <section className="doc-act"><h3>Cierre</h3><p className="pre">{acts.find((a) => a.tipo === 'cierre').dinamica}</p></section>
+      )}
 
       {(r.impresos || r.otrosMateriales) && (
         <>
