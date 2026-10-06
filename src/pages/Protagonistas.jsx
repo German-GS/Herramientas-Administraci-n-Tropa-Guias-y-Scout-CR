@@ -162,7 +162,9 @@ function Expediente({ p, patrullas, config, onCerrar }) {
           {f.activo === false && (
             <>
               <label>Fecha de salida<input type="date" value={f.fechaSalida || ''} onChange={(x) => set('fechaSalida', x.target.value)} /></label>
-              <label>Motivo de la salida (para el resumen de membresía del ciclo)<input value={f.motivoSalida || ''} onChange={(x) => set('motivoSalida', x.target.value)} /></label>
+              <label>Motivo de la salida
+                <input value={f.motivoSalida || ''} placeholder="Se usa en el resumen de membresía del ciclo" onChange={(x) => set('motivoSalida', x.target.value)} />
+              </label>
             </>
           )}
           <label className="full"><span><input type="checkbox" checked={!!f.promesado} onChange={(x) => set('promesado', x.target.checked)} /> Ya hizo su Promesa (promesado) — habilita «uniforme completo» en la inspección</span></label>
@@ -226,7 +228,7 @@ function Expediente({ p, patrullas, config, onCerrar }) {
         <textarea rows={4} style={{ width: '100%' }} value={f.notas} onChange={(x) => set('notas', x.target.value)} />
       </fieldset>
 
-      <div className="row between">
+      <div className="row between acciones-form">
         <button className="btn primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar expediente'}</button>
         {p && <button type="button" className="btn danger" onClick={borrar}>Borrar</button>}
       </div>
