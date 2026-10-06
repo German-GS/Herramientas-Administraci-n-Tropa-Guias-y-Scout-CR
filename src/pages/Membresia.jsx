@@ -3,8 +3,8 @@ import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
-import { leerHojaXlsx } from '../lib/leerXlsx.js';
-import { parsearInforme, soloDigitos } from '../lib/informeGrupo.js';
+import { leerLibroXlsx } from '../lib/leerXlsx.js';
+import { parsearLibro, soloDigitos } from '../lib/informeGrupo.js';
 import { CHEQUEOS_EXPEDIENTE, edad, ETAPAS, faltantesExpediente, formatoFecha } from '../lib/etapas.js';
 
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -49,8 +49,8 @@ export default function Membresia({ irAExpediente }) {
     if (!archivo) return;
     setLeyendo(true); setError(''); setResultado(''); setAnalisis(null);
     try {
-      const filas = await leerHojaXlsx(await archivo.arrayBuffer());
-      const inf = parsearInforme(filas);
+      if (archivo.name.startsWith('~$') || archivo.size < 2000) throw new Error('Ese archivo es temporal o está vacío (los que empiezan con «~$» los crea Excel mientras el informe está abierto). Cerrá Excel y elegí el informe real.');
+      const inf = parsearLibro(await leerLibroXlsx(await archivo.arrayBuffer()));
       setAnalisis({ ...inf, archivo: archivo.name, miembros: inf.miembros.map((m) => { const dup = marcarDuplicado(m); return { ...m, dup, incluir: !dup }; }) });
     } catch (err) {
       setError(err.message || 'No se pudo leer el archivo.');

@@ -28,10 +28,22 @@ export function fechaIsoInforme(txt) {
   return '';
 }
 
+const esCabecera = (f) => f.some((c) => norm(c).startsWith('cargo')) && f.some((c) => norm(c).includes('nombre'));
+
+// Acepta las hojas del libro y usa la primera que tenga el encabezado del informe
+export function parsearLibro(libro) {
+  for (const h of libro) if (h.filas.some(esCabecera)) return parsearInforme(h.filas);
+  const vistas = libro.map((h) => {
+    const prim = h.filas.find((f) => f.some(Boolean)) || [];
+    return `${h.nombre.replace('xl/worksheets/', '')}: ${h.filas.filter((f) => f.some(Boolean)).length} filas, empieza con «${prim.filter(Boolean).slice(0, 4).join(' | ') || 'vacío'}»`;
+  });
+  throw new Error(`No encontré el encabezado del informe (Cargo, Sección, Nombre…). ¿Es el «Reporte detalle por Grupo»? Lo que leí → ${vistas.join(' ; ')}`);
+}
+
 export function parsearInforme(filas) {
-  const cab = filas.findIndex((f) => f.some((c) => norm(c) === 'cargo') && f.some((c) => norm(c) === 'nombre'));
+  const cab = filas.findIndex(esCabecera);
   if (cab < 0) throw new Error('No encontré el encabezado del informe (Cargo, Sección, Nombre…). ¿Es el «Reporte detalle por Grupo»?');
-  const col = (nombre) => filas[cab].findIndex((c) => norm(c) === nombre);
+  const col = (nombre) => filas[cab].findIndex((c) => norm(c) === nombre || norm(c).startsWith(nombre));
   const idx = { cargo: col('cargo'), seccion: col('seccion'), etapa: col('etapa'), nombre: col('nombre'), cedula: col('cedula'), nacimiento: col('fecha de nacimiento'), correo: col('email') };
   const celda = (f, k) => (idx[k] >= 0 ? (f[idx[k]] || '').trim() : '');
 
