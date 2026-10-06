@@ -46,7 +46,7 @@ input, select, textarea { min-height: 40px; width: 100%; padding: .5rem .6rem; b
 textarea { min-height: 70px; }
 .form { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .form .full { grid-column: 1 / -1; }
-fieldset { border: 1px solid var(--line); border-radius: 10px; padding: .75rem; margin: 0; }
+fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: .75rem; margin: 0; }
 legend { color: var(--navy); font-weight: 600; padding: 0 .3rem; }
 
 table { width: 100%; border-collapse: collapse; }
@@ -120,7 +120,7 @@ input[type=color] { padding: 2px; height: 38px; }
 
 /* Menú lateral */
 .shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--navy); color: #fff; border-right: 4px solid var(--tropa); overflow-y: auto; }
+.sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--navy); color: #fff; border-right: 4px solid var(--tropa); overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: .65rem; padding: 1rem 1rem .6rem; line-height: 1.15; }
 .brand img { height: 46px; }
 .brand b { display: block; font-size: 1.1rem; font-weight: 800; }
@@ -258,6 +258,7 @@ td.acciones { white-space: nowrap; }
 .resumen-patrulla .total strong { font-size: 1.3rem; margin-left: .3rem; }
 
 @media (max-width: 860px) {
+  .cards-movil { display: block; width: 100%; }
   .cards-movil thead { display: none; }
   .cards-movil tbody, .cards-movil tr { display: block; }
   .cards-movil tr { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .8rem; border: 1px solid var(--line); border-radius: 10px; padding: .7rem; margin-bottom: .7rem; background: #fff; }
@@ -267,8 +268,32 @@ td.acciones { white-space: nowrap; }
   .cards-movil td.titulo { display: block; font-size: 1.02rem; padding-bottom: .3rem; border-bottom: 1px solid var(--line); }
   .cards-movil td.titulo::before, .cards-movil td.acciones::before { content: none; }
   .cards-movil td.oculto-movil { display: none; }
-  .cards-movil td input, .cards-movil td select { width: 100% !important; }
+  .cards-movil td input:not([type=checkbox]), .cards-movil td select { width: 100% !important; }
   .cards-movil td.acciones { flex-direction: row; justify-content: flex-end; gap: .4rem; }
   .clamp { max-width: none; }
   .tarjetas-patrulla { grid-template-columns: 1fr; }
+}
+
+/* Evita que tablas anchas ensanchen la página en el celular */
+.content, .card, fieldset, .table-wrap { min-width: 0; max-width: 100%; }
+body { overflow-x: hidden; }
+.content { padding-bottom: calc(1.2rem + env(safe-area-inset-bottom)); }
+
+@media (max-width: 860px) {
+  /* Menú lateral: ocupa la pantalla visible y respeta la barra inferior de Safari */
+  .sidebar { height: auto; top: 0; bottom: 0; padding-bottom: env(safe-area-inset-bottom); overscroll-behavior: contain; }
+  .usuario { padding-bottom: .8rem; }
+  .content { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+  /* Asistencia e inspección: una tarjeta por protagonista */
+  .insp.cards-movil tr { grid-template-columns: 1fr 1fr; }
+  .insp.cards-movil td:first-child { position: static; min-width: 0; z-index: auto; background: transparent; }
+  .insp.cards-movil td.c { text-align: left; padding: 0; flex-direction: row; align-items: center; justify-content: flex-start; gap: .55rem; text-align: left; min-height: 40px; }
+  .insp.cards-movil td.c::before { order: 2; margin: 0; font-size: .85rem; color: var(--ink); }
+  .insp.cards-movil td.c input[type=checkbox] { order: 1; width: 24px; height: 24px; flex: none; }
+  .insp.cards-movil td.presente { grid-column: 1 / -1; background: var(--tropa-soft); border-radius: 8px; padding: .3rem .6rem; }
+  .insp.cards-movil td.presente::before { font-weight: 700; font-size: .95rem; }
+  .insp.cards-movil td.total-mov { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding-top: .4rem; }
+  .insp.cards-movil td.total-mov::before { order: 0; }
+  .insp.cards-movil td.c:has(input:disabled) { opacity: .45; }
 }

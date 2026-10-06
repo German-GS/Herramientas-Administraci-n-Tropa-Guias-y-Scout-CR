@@ -352,7 +352,7 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
                         <span className="muted">Asistencia {d.asistencia} pts · Inspección {d.inspeccion} pts</span>
                       </div>
                       <div className="table-wrap">
-                        <table className="table insp">
+                        <table className="table insp cards-movil">
                           <thead>
                             <tr>
                               <th>Protagonista</th><th className="c">Presente</th>
@@ -366,19 +366,19 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
                               const marcados = ITEMS_INSPECCION.filter((i) => pres && f.inspeccion?.[m.id]?.[i.key]).length;
                               return (
                                 <tr key={m.id} style={pres ? null : { opacity: 0.6 }}>
-                                  <td><strong>{m.nombre} {m.apellidos}</strong>{m.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
-                                  <td className="c"><input type="checkbox" checked={pres} onChange={(e) => setPresente(m, p.id, e.target.checked)} aria-label={`${m.nombre} presente`} /></td>
+                                  <td className="titulo" data-label="Protagonista"><strong>{m.nombre} {m.apellidos}</strong>{m.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
+                                  <td className="c presente" data-label="Presente"><input type="checkbox" checked={pres} onChange={(e) => setPresente(m, p.id, e.target.checked)} aria-label={`${m.nombre} presente`} /></td>
                                   {ITEMS_INSPECCION.map((i) => {
                                     const bloqueado = !pres || (i.soloPromesado && !m.promesado);
                                     return (
-                                      <td key={i.key} className="c">
+                                      <td key={i.key} className="c" data-label={i.corto}>
                                         <input type="checkbox" disabled={bloqueado} title={i.soloPromesado && !m.promesado ? 'No promesado' : i.label}
                                           checked={!bloqueado && !!f.inspeccion?.[m.id]?.[i.key]} onChange={(e) => setItem(m.id, i.key, e.target.checked)}
                                           aria-label={`${i.label} de ${m.nombre}`} />
                                       </td>
                                     );
                                   })}
-                                  <td className="c"><strong>{marcados}</strong></td>
+                                  <td className="c total-mov" data-label="Puntos de inspección"><strong>{marcados}</strong></td>
                                 </tr>
                               );
                             })}
