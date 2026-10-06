@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
+import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
 import { alertasDe, CARGOS, edad, ETAPAS, formatoFecha, hoyISO, siguienteEtapa } from '../lib/etapas';
 
@@ -74,6 +74,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
 }
 
 function Expediente({ p, patrullas, config, onCerrar }) {
+  const { col, ref } = useGrupo();
   const [f, setF] = useState(() => ({
     ...VACIO, ...(p || {}),
     encargado: { ...VACIO.encargado, ...(p?.encargado || {}) },
@@ -88,8 +89,8 @@ function Expediente({ p, patrullas, config, onCerrar }) {
     setGuardando(true);
     const { id, ...data } = f;
     try {
-      if (p) await updateDoc(doc(db, 'protagonistas', p.id), data);
-      else await addDoc(collection(db, 'protagonistas'), data);
+      if (p) await updateDoc(ref('protagonistas', p.id), data);
+      else await addDoc(col('protagonistas'), data);
       onCerrar();
     } finally { setGuardando(false); }
   };
@@ -101,13 +102,13 @@ function Expediente({ p, patrullas, config, onCerrar }) {
     if (!fecha) return;
     const historial = [...(f.historialEtapas || []), { etapa: f.etapa, desde: f.fechaInicioEtapa, hasta: fecha }];
     const cambios = { etapa: sig, fechaInicioEtapa: fecha, historialEtapas: historial };
-    await updateDoc(doc(db, 'protagonistas', p.id), cambios);
+    await updateDoc(ref('protagonistas', p.id), cambios);
     setF((x) => ({ ...x, ...cambios }));
   };
 
   const borrar = async () => {
     if (confirm(`¿Borrar definitivamente el expediente de ${f.nombre}? Si salió del grupo, mejor marcalo como inactivo.`)) {
-      await deleteDoc(doc(db, 'protagonistas', p.id));
+      await deleteDoc(ref('protagonistas', p.id));
       onCerrar();
     }
   };

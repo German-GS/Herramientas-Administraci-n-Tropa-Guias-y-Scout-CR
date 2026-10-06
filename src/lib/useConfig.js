@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useEffect, useMemo, useState } from 'react';
+import { onSnapshot, setDoc } from 'firebase/firestore';
 import { CONFIG_DEFAULT } from './etapas';
-
-const ref = doc(db, 'config', 'app');
+import { useGrupo } from './grupo.jsx';
 
 export function useConfig() {
+  const { ref } = useGrupo();
+  const docRef = useMemo(() => ref('config', 'app'), [ref]);
   const [config, setConfig] = useState(CONFIG_DEFAULT);
   useEffect(
-    () => onSnapshot(ref, (snap) => setConfig({ ...CONFIG_DEFAULT, ...(snap.data() || {}) })),
-    []
+    () => onSnapshot(docRef, (snap) => setConfig({ ...CONFIG_DEFAULT, ...(snap.data() || {}) })),
+    [docRef]
   );
-  const guardar = (cambios) => setDoc(ref, cambios, { merge: true });
+  const guardar = (cambios) => setDoc(docRef, cambios, { merge: true });
   return [config, guardar];
 }

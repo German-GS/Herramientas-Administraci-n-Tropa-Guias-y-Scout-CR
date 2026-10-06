@@ -15,6 +15,3 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 auth.languageCode = 'es';
 export const db = getFirestore(app);
-// Correo del Jefe de Grupo: acceso total y quien autoriza a los demás dirigentes
-// (debe coincidir con firestore.rules)
-export const JEFE_EMAIL = (import.meta.env.VITE_ALLOWED_EMAIL || '').toLowerCase();

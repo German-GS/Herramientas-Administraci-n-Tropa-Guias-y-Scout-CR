@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
+import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
 import { CATEGORIAS, formatoFecha, hoyISO, totalReunionPatrulla } from '../lib/etapas';
 
@@ -49,6 +49,7 @@ export default function Reuniones() {
 }
 
 function EditorReunion({ r, patrullas, ciclos, onCerrar }) {
+  const { col, ref } = useGrupo();
   const [config] = useConfig();
   const max = Number(config.puntajeMaxCategoria) || 10;
   const [f, setF] = useState(() => {
@@ -69,13 +70,13 @@ function EditorReunion({ r, patrullas, ciclos, onCerrar }) {
       for (const c of CATEGORIAS) limpio[p.id][c.key] = Number(f.puntajes[p.id]?.[c.key]) || 0;
     }
     const data = { ...f, puntajes: limpio };
-    if (r) await updateDoc(doc(db, 'reuniones', r.id), data);
-    else await addDoc(collection(db, 'reuniones'), data);
+    if (r) await updateDoc(ref('reuniones', r.id), data);
+    else await addDoc(col('reuniones'), data);
     onCerrar();
   };
 
   const borrar = async () => {
-    if (confirm('¿Borrar esta reunión y sus puntajes?')) { await deleteDoc(doc(db, 'reuniones', r.id)); onCerrar(); }
+    if (confirm('¿Borrar esta reunión y sus puntajes?')) { await deleteDoc(ref('reuniones', r.id)); onCerrar(); }
   };
 
   return (

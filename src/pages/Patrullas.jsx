@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
+import { useGrupo } from '../lib/grupo.jsx';
 
 const VACIA = { nombre: '', color: '#04bc99', lema: '' };
 
 export default function Patrullas() {
+  const { col, ref } = useGrupo();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: protagonistas } = useCollection('protagonistas');
   const [form, setForm] = useState(VACIA);
@@ -15,8 +16,8 @@ export default function Patrullas() {
     e.preventDefault();
     if (!form.nombre.trim()) return;
     const data = { nombre: form.nombre.trim(), color: form.color, lema: form.lema.trim() };
-    if (editando) await updateDoc(doc(db, 'patrullas', editando), data);
-    else await addDoc(collection(db, 'patrullas'), data);
+    if (editando) await updateDoc(ref('patrullas', editando), data);
+    else await addDoc(col('patrullas'), data);
     setForm(VACIA);
     setEditando(null);
   };
@@ -24,7 +25,7 @@ export default function Patrullas() {
   const borrar = async (p) => {
     const n = protagonistas.filter((x) => x.patrullaId === p.id).length;
     if (n > 0) return alert(`La patrulla tiene ${n} protagonista(s). Reasignalos antes de borrarla.`);
-    if (confirm(`¿Borrar la patrulla ${p.nombre}?`)) await deleteDoc(doc(db, 'patrullas', p.id));
+    if (confirm(`¿Borrar la patrulla ${p.nombre}?`)) await deleteDoc(ref('patrullas', p.id));
   };
 
   return (

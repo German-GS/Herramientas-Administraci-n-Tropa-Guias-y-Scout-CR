@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { addDoc, collection, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, deleteDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
+import { useGrupo } from '../lib/grupo.jsx';
 import { formatoFecha, hoyISO } from '../lib/etapas';
 
 export default function PuntosExtra() {
+  const { col, ref } = useGrupo();
   const { docs: extras } = useCollection('puntosExtra', 'fecha');
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
@@ -14,7 +15,7 @@ export default function PuntosExtra() {
 
   const agregar = async (signo) => {
     if (!f.patrullaId || !f.motivo.trim() || !Number(f.puntos)) return alert('Elegí patrulla, puntos y motivo.');
-    await addDoc(collection(db, 'puntosExtra'), {
+    await addDoc(col('puntosExtra'), {
       fecha: f.fecha,
       cicloId: f.cicloId || cicloDe(f.fecha),
       patrullaId: f.patrullaId,
@@ -66,7 +67,7 @@ export default function PuntosExtra() {
                   <td>{nombre(e.patrullaId)}</td>
                   <td className={e.puntos >= 0 ? 'pos-num' : 'neg-num'}><strong>{e.puntos > 0 ? '+' : ''}{e.puntos}</strong></td>
                   <td>{e.motivo}</td>
-                  <td><button className="btn small ghost" onClick={() => confirm('¿Eliminar este registro?') && deleteDoc(doc(db, 'puntosExtra', e.id))}>✕</button></td>
+                  <td><button className="btn small ghost" onClick={() => confirm('¿Eliminar este registro?') && deleteDoc(ref('puntosExtra', e.id))}>✕</button></td>
                 </tr>
               ))}
             </tbody>

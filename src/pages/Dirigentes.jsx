@@ -1,54 +1,72 @@
 import { useState } from 'react';
-import { deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { db, JEFE_EMAIL } from '../firebase';
+import { deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
+import { useGrupo } from '../lib/grupo.jsx';
+
+const ETIQUETA = { activo: 'Activo', pendiente: 'Pendiente', suspendido: 'Suspendido' };
 
 export default function Dirigentes() {
-  const { docs: dirigentes, error } = useCollection('usuarios');
-  const [f, setF] = useState({ email: '', nombre: '' });
+  const { gid, grupo, miembro, ref } = useGrupo();
+  const { docs: miembros, error } = useCollection('miembros');
+  const [copiado, setCopiado] = useState(false);
 
-  const agregar = async (e) => {
-    e.preventDefault();
-    const email = f.email.trim().toLowerCase();
-    if (!email) return;
-    await setDoc(doc(db, 'usuarios', email), { email, nombre: f.nombre.trim(), activo: true, rol: 'dirigente' });
-    setF({ email: '', nombre: '' });
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(gid); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* sin portapapeles */ }
   };
+  const cambiar = (m, cambios) => updateDoc(ref('miembros', m.id), cambios);
+  const quitar = (m) => confirm(`¿Quitar a ${m.nombre || m.email} del grupo?`) && deleteDoc(ref('miembros', m.id));
+
+  const orden = { pendiente: 0, activo: 1, suspendido: 2 };
+  const lista = [...miembros].sort((a, b) => (orden[a.estado] - orden[b.estado]) || (a.nombre || '').localeCompare(b.nombre || ''));
+  const pendientes = lista.filter((m) => m.estado === 'pendiente').length;
 
   return (
     <div className="grid two">
       <div className="card">
-        <h2>Autorizar dirigente</h2>
+        <h2>Código del grupo</h2>
         <p className="muted">
-          Agregá el correo con el que el dirigente creó su cuenta. Podrá ver y editar los datos de la Tropa
-          apenas confirme su correo. Incluye expedientes y fichas médicas de menores.
+          Compartí este código con los dirigentes de tu equipo. Cada uno crea su cuenta, elige «Unirme a un grupo»
+          y escribe el código. Vos aprobás cada solicitud.
         </p>
-        <form className="form" onSubmit={agregar}>
-          <label>Nombre<input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></label>
-          <label>Correo<input type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
-          <div className="row full"><button className="btn primary">Autorizar</button></div>
-        </form>
+        <div className="codigo">{gid}</div>
+        <div className="row" style={{ marginTop: 8 }}>
+          <button className="btn small" onClick={copiar}>{copiado ? 'Copiado ✓' : 'Copiar código'}</button>
+        </div>
+        <p className="muted" style={{ marginTop: 12 }}>
+          Grupo {grupo?.numero} — {grupo?.localidad}. Los dirigentes aprobados ven expedientes y fichas médicas de menores:
+          aprobá solo a personas del equipo.
+        </p>
       </div>
 
       <div className="card">
-        <h2>Dirigentes con acceso</h2>
+        <h2>Dirigentes {pendientes > 0 && <span className="badge media">{pendientes} por aprobar</span>}</h2>
         {error && <p className="error">No se pudo leer la lista: {error.code}</p>}
-        <div className="item">
-          <div><strong>Jefe de Grupo</strong><div className="muted">{JEFE_EMAIL}</div></div>
-          <span className="badge">Acceso total</span>
-        </div>
-        {dirigentes.length === 0 && <p className="empty">Aún no hay otros dirigentes autorizados.</p>}
-        {dirigentes.map((d) => (
-          <div key={d.id} className="item" style={d.activo === false ? { opacity: 0.55 } : null}>
-            <div><strong>{d.nombre || d.email}</strong><div className="muted">{d.email}</div></div>
-            <div className="row">
-              <button className="btn small" onClick={() => updateDoc(doc(db, 'usuarios', d.id), { activo: d.activo === false })}>
-                {d.activo === false ? 'Reactivar' : 'Suspender'}
-              </button>
-              <button className="btn small danger" onClick={() => confirm(`¿Quitar el acceso de ${d.email}?`) && deleteDoc(doc(db, 'usuarios', d.id))}>Quitar</button>
+        {lista.map((m) => {
+          const yo = m.id === miembro.id;
+          return (
+            <div key={m.id} className="item" style={m.estado === 'suspendido' ? { opacity: 0.6 } : null}>
+              <div>
+                <strong>{m.nombre || m.email}</strong> {yo && <span className="muted">(vos)</span>}
+                <div className="muted">{m.email}</div>
+                <span className={`badge ${m.estado === 'pendiente' ? 'media' : ''}`}>{m.rol === 'jefe' ? 'Jefe de Grupo' : 'Dirigente'}</span>{' '}
+                <span className="badge">{ETIQUETA[m.estado] || m.estado}</span>
+              </div>
+              {!yo && (
+                <div className="row">
+                  {m.estado === 'pendiente' && <button className="btn small primary" onClick={() => cambiar(m, { estado: 'activo' })}>Aprobar</button>}
+                  {m.estado === 'activo' && <button className="btn small" onClick={() => cambiar(m, { estado: 'suspendido' })}>Suspender</button>}
+                  {m.estado === 'suspendido' && <button className="btn small" onClick={() => cambiar(m, { estado: 'activo' })}>Reactivar</button>}
+                  {m.estado === 'activo' && (
+                    <button className="btn small" onClick={() => cambiar(m, { rol: m.rol === 'jefe' ? 'dirigente' : 'jefe' })}>
+                      {m.rol === 'jefe' ? 'Quitar jefatura' : 'Hacer jefe'}
+                    </button>
+                  )}
+                  <button className="btn small danger" onClick={() => quitar(m)}>{m.estado === 'pendiente' ? 'Rechazar' : 'Quitar'}</button>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

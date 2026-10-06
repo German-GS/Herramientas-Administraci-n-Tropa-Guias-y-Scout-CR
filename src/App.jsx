@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useAcceso } from './lib/useAcceso';
+import { GrupoProvider } from './lib/grupo.jsx';
 import Login from './Login.jsx';
+import Onboarding from './Onboarding.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Patrullas from './pages/Patrullas.jsx';
 import Protagonistas from './pages/Protagonistas.jsx';
@@ -11,6 +13,17 @@ import PuntosExtra from './pages/PuntosExtra.jsx';
 import Ciclos from './pages/Ciclos.jsx';
 import Dirigentes from './pages/Dirigentes.jsx';
 import Ajustes from './pages/Ajustes.jsx';
+
+const ICONOS = {
+  inicio: 'M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
+  reuniones: 'M7 3v4M17 3v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
+  puntos: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+  ciclos: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3',
+  protagonistas: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+  patrullas: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a7 7 0 0 1 4 6',
+  dirigentes: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
+  ajustes: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4',
+};
 
 const TABS = [
   { key: 'inicio', label: 'Inicio', comp: Dashboard },
@@ -39,11 +52,72 @@ function Aviso({ titulo, children }) {
   );
 }
 
+function Icono({ k }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONOS[k]} /></svg>
+  );
+}
+
+function Panel({ user, acceso }) {
+  const [tab, setTab] = useState('inicio');
+  const [menu, setMenu] = useState(false);
+  const [abrirExpediente, setAbrirExpediente] = useState(null);
+  const esJefe = acceso.miembro.rol === 'jefe';
+  const tabs = TABS.filter((t) => !t.soloJefe || esJefe);
+  const actual = tabs.find((t) => t.key === tab) || tabs[0];
+  const Actual = actual.comp;
+
+  const ir = (key) => { setTab(key); setMenu(false); if (key !== 'protagonistas') setAbrirExpediente(null); };
+  const irAExpediente = (id) => { setAbrirExpediente(id); setTab('protagonistas'); };
+
+  return (
+    <GrupoProvider gid={acceso.gid} grupo={acceso.grupo} miembro={acceso.miembro}>
+      <div className={menu ? 'shell abierto' : 'shell'}>
+        <div className="mobilebar">
+          <button className="hamb" onClick={() => setMenu(true)} aria-label="Abrir menú">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          <img src="/img/agscr-blanco.png" alt="" />
+          <strong>{actual.label}</strong>
+        </div>
+        <div className="scrim" onClick={() => setMenu(false)} />
+        <aside className="sidebar" aria-label="Menú principal">
+          <div className="brand">
+            <img src="/img/agscr-blanco.png" alt="AGSCR" />
+            <div>
+              <b>Grupo {acceso.grupo?.numero}</b>
+              <small>{acceso.grupo?.localidad || 'Guías y Scouts de Costa Rica'}</small>
+            </div>
+          </div>
+          <div className="seccion-chip"><img src="/img/tropa-mano-blanca.png" alt="" /> Sección Tropa</div>
+          <nav className="nav">
+            {tabs.map((t) => (
+              <button key={t.key} className={t.key === actual.key ? 'navitem active' : 'navitem'} onClick={() => ir(t.key)}>
+                <Icono k={t.key} /> <span>{t.label}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="usuario">
+            <div className="quien">
+              <strong>{acceso.miembro.nombre || user.email}</strong>
+              <small>{esJefe ? 'Jefe de Grupo' : 'Dirigente'}</small>
+            </div>
+            <button className="btn small ghost" onClick={() => signOut(auth)}>Salir</button>
+          </div>
+        </aside>
+        <main className="content">
+          <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
+            limpiarExpediente={() => setAbrirExpediente(null)} esJefe={esJefe} />
+        </main>
+      </div>
+    </GrupoProvider>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined);
   const [, refrescar] = useState(0);
-  const [tab, setTab] = useState('inicio');
-  const [abrirExpediente, setAbrirExpediente] = useState(null);
   const [aviso, setAviso] = useState('');
   const acceso = useAcceso(user);
 
@@ -72,46 +146,24 @@ export default function App() {
     );
   }
 
-  if (acceso === 'cargando') return <div className="center">Cargando…</div>;
+  if (acceso.estado === 'cargando') return <div className="center">Cargando…</div>;
+  if (acceso.estado === 'sinGrupo') return <Onboarding user={user} />;
 
-  if (acceso === 'pendiente') {
+  if (acceso.estado === 'pendiente') {
     return (
-      <Aviso titulo="Acceso pendiente">
-        <p>Tu cuenta <strong>{user.email}</strong> está creada y verificada, pero el Jefe de Grupo todavía no autoriza tu acceso.</p>
-        <p className="muted">Pedile que te agregue en la pestaña «Dirigentes» y luego recargá esta página.</p>
+      <Aviso titulo="Solicitud enviada">
+        <p>Pediste unirte al <strong>Grupo {acceso.grupo?.numero}</strong>{acceso.grupo?.localidad ? ` — ${acceso.grupo.localidad}` : ''}.</p>
+        <p className="muted">El Jefe de Grupo debe aprobarte. Cuando lo haga, esta pantalla se actualiza sola.</p>
+      </Aviso>
+    );
+  }
+  if (acceso.estado === 'suspendido') {
+    return (
+      <Aviso titulo="Acceso suspendido">
+        <p>El Jefe de Grupo suspendió tu acceso. Consultale si crees que es un error.</p>
       </Aviso>
     );
   }
 
-  const esJefe = acceso === 'jefe';
-  const tabs = TABS.filter((t) => !t.soloJefe || esJefe);
-  const Actual = (tabs.find((t) => t.key === tab) || tabs[0]).comp;
-  const irAExpediente = (id) => {
-    setAbrirExpediente(id);
-    setTab('protagonistas');
-  };
-
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <img src="/img/agscr-blanco.png" alt="AGSCR" />
-          <div><b>Tropa 307</b><small>Guías y Scouts de Costa Rica</small></div>
-        </div>
-        <button className="btn small ghost salir" onClick={() => signOut(auth)} title={user.email}>Salir</button>
-        <nav className="tabs">
-          {tabs.map((t) => (
-            <button key={t.key} className={tab === t.key ? 'tab active' : 'tab'}
-              onClick={() => { setTab(t.key); if (t.key !== 'protagonistas') setAbrirExpediente(null); }}>
-              {t.label}
-            </button>
-          ))}
-        </nav>
-      </header>
-      <main className="content">
-        <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
-          limpiarExpediente={() => setAbrirExpediente(null)} esJefe={esJefe} />
-      </main>
-    </div>
-  );
+  return <Panel user={user} acceso={acceso} />;
 }

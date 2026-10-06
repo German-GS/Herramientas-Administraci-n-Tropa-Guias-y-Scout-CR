@@ -1,40 +1,72 @@
 rules_version = '2';
 
-// Acceso:
-//  - Jefe de Grupo (correo fijo): todo.
-//  - Dirigentes: cuenta con correo verificado Y presente/activo en /usuarios/{correo},
-//    que solo el Jefe puede modificar.
+// Modelo: cada Grupo Guía y Scout es un espacio aislado: /grupos/{grupoId}/...
+//  - usuarios/{uid}                       -> a qué grupo pertenece cada cuenta (solo ella lo ve y edita)
+//  - grupos/{g}                           -> número y localidad
+//  - grupos/{g}/miembros/{uid}            -> rol (jefe | dirigente) y estado (pendiente | activo | suspendido)
+//  - grupos/{g}/{patrullas, protagonistas, ciclos, reuniones, puntosExtra, config}
+// El acceso a los datos SIEMPRE depende de ser miembro activo del grupo; nunca de un campo que edite el propio usuario.
 // Hay datos personales y médicos de menores (Ley 8968): no ampliar sin revisar.
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function verificado() {
       return request.auth != null && request.auth.token.email_verified == true;
     }
-    function esJefe() {
-      return verificado() && request.auth.token.email == 'german.gs19@gmail.com';
+    function miembroDoc(g) {
+      return /databases/$(database)/documents/grupos/$(g)/miembros/$(request.auth.uid);
     }
-    function esDirigente() {
-      return verificado()
-        && exists(/databases/$(database)/documents/usuarios/$(request.auth.token.email))
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.activo != false;
+    function esActivo(g) {
+      return verificado() && exists(miembroDoc(g)) && get(miembroDoc(g)).data.estado == 'activo';
     }
-
-    // Lista de dirigentes: solo el Jefe escribe; cada quien puede leer su propio registro
-    match /usuarios/{correo} {
-      allow read: if esJefe() || (verificado() && request.auth.token.email == correo);
-      allow write: if esJefe();
+    function esJefe(g) {
+      return esActivo(g) && get(miembroDoc(g)).data.rol == 'jefe';
     }
 
-    // Ajustes: los dirigentes leen, el Jefe modifica
-    match /config/{id} {
-      allow read: if esJefe() || esDirigente();
-      allow write: if esJefe();
+    // Puntero de cada cuenta a su grupo (no da acceso por sí mismo)
+    match /usuarios/{uid} {
+      allow read, write: if verificado() && request.auth.uid == uid;
     }
 
-    // Datos de la Tropa
-    match /{coleccion}/{id} {
-      allow read, write: if (coleccion in ['patrullas', 'protagonistas', 'ciclos', 'reuniones', 'puntosExtra'])
-        && (esJefe() || esDirigente());
+    match /grupos/{g} {
+      // Se puede consultar un grupo por su código (para unirse) pero no listar grupos
+      allow get: if verificado();
+      allow create: if verificado()
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.numero is string
+        && request.resource.data.localidad is string;
+      allow update: if esJefe(g);
+      allow delete: if false;
+
+      match /miembros/{uid} {
+        allow get: if verificado() && request.auth.uid == uid;
+        allow list: if esActivo(g);
+
+        // 1) El creador del grupo se registra como Jefe
+        // 2) Cualquier cuenta verificada puede pedir ingreso: solo como dirigente y en estado pendiente
+        allow create: if verificado() && request.auth.uid == uid
+          && (
+            (request.resource.data.rol == 'jefe' && request.resource.data.estado == 'activo'
+              && get(/databases/$(database)/documents/grupos/$(g)).data.creadoPor == request.auth.uid)
+            ||
+            (request.resource.data.rol == 'dirigente' && request.resource.data.estado == 'pendiente')
+          );
+
+        // Solo el Jefe aprueba, suspende, cambia roles o quita
+        allow update, delete: if esJefe(g);
+      }
+
+      // Ajustes del grupo: leen los miembros activos, modifica el Jefe
+      match /config/{id} {
+        allow read: if esActivo(g);
+        allow write: if esJefe(g);
+      }
+
+      // Datos de la Tropa
+      match /{coleccion}/{id} {
+        allow read, write: if esActivo(g)
+          && coleccion in ['patrullas', 'protagonistas', 'ciclos', 'reuniones', 'puntosExtra'];
+      }
     }
   }
 }

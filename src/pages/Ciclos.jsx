@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
+import { useGrupo } from '../lib/grupo.jsx';
 import { CATEGORIAS, formatoFecha, hoyISO } from '../lib/etapas';
 
 export default function Ciclos() {
+  const { col, ref } = useGrupo();
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
@@ -34,8 +35,8 @@ export default function Ciclos() {
 
   const guardar = async (e) => {
     e.preventDefault();
-    if (editando) await updateDoc(doc(db, 'ciclos', editando), form);
-    else await addDoc(collection(db, 'ciclos'), form);
+    if (editando) await updateDoc(ref('ciclos', editando), form);
+    else await addDoc(col('ciclos'), form);
     setForm({ nombre: '', inicio: hoyISO(), fin: '' });
     setEditando(null);
   };
@@ -43,7 +44,7 @@ export default function Ciclos() {
   const borrar = async (c) => {
     const usados = reuniones.some((r) => r.cicloId === c.id) || extras.some((x) => x.cicloId === c.id);
     if (usados) return alert('Este ciclo tiene reuniones o puntos asociados; no se puede borrar.');
-    if (confirm(`¿Borrar el ciclo ${c.nombre}?`)) await deleteDoc(doc(db, 'ciclos', c.id));
+    if (confirm(`¿Borrar el ciclo ${c.nombre}?`)) await deleteDoc(ref('ciclos', c.id));
   };
 
   return (
