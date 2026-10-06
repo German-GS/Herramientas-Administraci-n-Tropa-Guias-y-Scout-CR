@@ -10,7 +10,7 @@ const VACIO = {
   etapa: ETAPAS[0], fechaIngreso: hoyISO(), fechaInicioEtapa: hoyISO(),
   encargado: { nombre: '', telefono: '', parentesco: '' },
   medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '', seguro: '' },
-  notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
+  cedula: '', correo: '', etapaConfirmada: true, notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
 };
 
 export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
@@ -132,6 +132,8 @@ function Expediente({ p, patrullas, config, onCerrar }) {
           <label>Nombre<input value={f.nombre} onChange={(x) => set('nombre', x.target.value)} required /></label>
           <label>Apellidos<input value={f.apellidos} onChange={(x) => set('apellidos', x.target.value)} /></label>
           <label>Fecha de nacimiento<input type="date" value={f.fechaNacimiento} onChange={(x) => set('fechaNacimiento', x.target.value)} /></label>
+          <label>Cédula<input value={f.cedula || ''} onChange={(x) => set('cedula', x.target.value)} inputMode="numeric" /></label>
+          <label>Correo de contacto<input type="email" value={f.correo || ''} onChange={(x) => set('correo', x.target.value)} /></label>
           <label>Fecha de ingreso<input type="date" value={f.fechaIngreso} onChange={(x) => set('fechaIngreso', x.target.value)} /></label>
         </div>
       </fieldset>
@@ -151,7 +153,7 @@ function Expediente({ p, patrullas, config, onCerrar }) {
             </select>
           </label>
           <label>Etapa
-            <select value={f.etapa} onChange={(x) => set('etapa', x.target.value)}>
+            <select value={f.etapa} onChange={(x) => setF((y) => ({ ...y, etapa: x.target.value, etapaConfirmada: true }))}>
               {ETAPAS.map((c) => <option key={c}>{c}</option>)}
             </select>
           </label>

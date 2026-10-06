@@ -213,3 +213,16 @@ export function horaCorta(h) {
   if (Number.isNaN(H)) return h;
   return `${((H + 11) % 12) + 1}:${String(M || 0).padStart(2, '0')} ${H < 12 ? 'a.m.' : 'p.m.'}`;
 }
+
+// Qué le falta a un expediente para considerarlo completo (módulo Membresía)
+export const CHEQUEOS_EXPEDIENTE = [
+  ['patrulla', 'patrulla', (p) => !!p.patrullaId],
+  ['etapa', 'etapa por confirmar', (p) => p.etapaConfirmada !== false],
+  ['inicioEtapa', 'inicio de etapa', (p) => !!p.fechaInicioEtapa],
+  ['ingreso', 'fecha de ingreso', (p) => !!p.fechaIngreso],
+  ['nacimiento', 'fecha de nacimiento', (p) => !!p.fechaNacimiento],
+  ['encargado', 'encargado y teléfono', (p) => !!(p.encargado?.nombre && p.encargado?.telefono)],
+  ['sangre', 'tipo de sangre', (p) => !!p.medico?.tipoSangre],
+  ['alergias', 'alergias', (p) => !!(p.medico?.alergias || p.medico?.sinAlergias)],
+];
+export const faltantesExpediente = (p) => CHEQUEOS_EXPEDIENTE.filter(([, , ok]) => !ok(p)).map(([k, etiqueta]) => ({ k, etiqueta }));

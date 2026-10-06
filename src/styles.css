@@ -369,3 +369,6 @@ body { overflow-x: hidden; }
   .editable.prog tr.totales td.c strong { order: 1; min-width: 1.6rem; text-align: center; font-size: 1.1rem; color: var(--navy); }
   .editable.prog tr.totales td:first-child { font-size: 1rem; }
 }
+
+.chips-falta { display: flex; flex-wrap: wrap; gap: .3rem; }
+.chips-falta .chip { background: #fff7e0; border-color: #f2d98b; color: #6b4e00; font-size: .78rem; padding: .15rem .55rem; }

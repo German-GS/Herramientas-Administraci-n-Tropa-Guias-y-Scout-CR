@@ -9,6 +9,7 @@ import Onboarding from './Onboarding.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Patrullas from './pages/Patrullas.jsx';
 import Protagonistas from './pages/Protagonistas.jsx';
+import Membresia from './pages/Membresia.jsx';
 import Reuniones from './pages/Reuniones.jsx';
 import PuntosExtra from './pages/PuntosExtra.jsx';
 import Ciclos from './pages/Ciclos.jsx';
@@ -21,6 +22,7 @@ const ICONOS = {
   puntos: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   ciclos: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3',
   protagonistas: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+  membresia: 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5 17a3 3 0 0 1 6 0M14 9h4M14 13h4',
   patrullas: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a7 7 0 0 1 4 6',
   dirigentes: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
   ajustes: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4',
@@ -31,6 +33,7 @@ const TABS = [
   { key: 'reuniones', label: 'Reuniones', comp: Reuniones },
   { key: 'puntos', label: 'Puntos extra', comp: PuntosExtra },
   { key: 'ciclos', label: 'Ciclos', comp: Ciclos },
+  { key: 'membresia', label: 'Membresía', comp: Membresia },
   { key: 'protagonistas', label: 'Expedientes', comp: Protagonistas },
   { key: 'patrullas', label: 'Patrullas', comp: Patrullas },
   { key: 'dirigentes', label: 'Dirigentes', comp: Dirigentes, soloJefe: true },
