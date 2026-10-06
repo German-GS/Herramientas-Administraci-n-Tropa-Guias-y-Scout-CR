@@ -116,15 +116,15 @@ function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
     const rs = reuniones.filter((r) => r.cicloId === c.id);
     const es = extras.filter((e) => e.cicloId === c.id);
     return patrullas.map((p) => {
-      const acc = { crit: Object.fromEntries(CRITERIOS.map((k) => [k.key, 0])), lugar: 0, general: Object.fromEntries(CATEGORIAS.map((k) => [k.key, 0])) };
+      const acc = { crit: Object.fromEntries(CRITERIOS.map((k) => [k.key, 0])), lugar: 0, asistencia: 0, inspeccion: 0, general: Object.fromEntries(CATEGORIAS.map((k) => [k.key, 0])) };
       for (const r of rs) {
         const d = desglosePatrulla(r, p.id, config);
         CRITERIOS.forEach((k) => { acc.crit[k.key] += d.crit[k.key]; });
         CATEGORIAS.forEach((k) => { acc.general[k.key] += d.general[k.key]; });
-        acc.lugar += d.lugar;
+        acc.lugar += d.lugar; acc.asistencia += d.asistencia; acc.inspeccion += d.inspeccion;
       }
       const extra = es.filter((e) => e.patrullaId === p.id).reduce((s2, e) => s2 + (Number(e.puntos) || 0), 0);
-      const total = Object.values(acc.crit).reduce((a, b) => a + b, 0) + acc.lugar + Object.values(acc.general).reduce((a, b) => a + b, 0) + extra;
+      const total = Object.values(acc.crit).reduce((a, b) => a + b, 0) + acc.lugar + acc.asistencia + acc.inspeccion + Object.values(acc.general).reduce((a, b) => a + b, 0) + extra;
       return { ...p, ...acc, extra, total };
     }).sort((a, b) => b.total - a.total);
   }, [c, reuniones, extras, patrullas, config]);
@@ -288,13 +288,13 @@ function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
           <p className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</p>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>#</th><th>Patrulla</th>{CRITERIOS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Lugares</th>{CATEGORIAS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Extra</th><th>Total</th></tr></thead>
+              <thead><tr><th>#</th><th>Patrulla</th>{CRITERIOS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Lugares</th><th>Asistencia</th><th>Inspección</th>{CATEGORIAS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Extra</th><th>Total</th></tr></thead>
               <tbody>
                 {tabla.map((p, i) => (
                   <tr key={p.id}>
                     <td>{i === 0 && p.total > 0 ? '🏆' : i + 1}</td>
                     <td><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
-                    {CRITERIOS.map((k) => <td key={k.key}>{p.crit[k.key]}</td>)}<td>{p.lugar}</td>{CATEGORIAS.map((k) => <td key={k.key}>{p.general[k.key]}</td>)}
+                    {CRITERIOS.map((k) => <td key={k.key}>{p.crit[k.key]}</td>)}<td>{p.lugar}</td><td>{p.asistencia}</td><td>{p.inspeccion}</td>{CATEGORIAS.map((k) => <td key={k.key}>{p.general[k.key]}</td>)}
                     <td className={p.extra >= 0 ? 'pos-num' : 'neg-num'}>{p.extra > 0 ? '+' : ''}{p.extra}</td>
                     <td><strong>{p.total}</strong></td>
                   </tr>

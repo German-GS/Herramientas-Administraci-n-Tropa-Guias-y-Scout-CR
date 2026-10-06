@@ -3,9 +3,16 @@ import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
-import { CATEGORIAS, CRITERIOS, desglosePatrulla, etiquetaCiclo, formatoFecha, hoyISO, listaPuntosLugar, TIPOS_ACTIVIDAD, totalReunionPatrulla } from '../lib/etapas';
+import { CATEGORIAS, CRITERIOS, desglosePatrulla, ESTANDAR, ITEMS_INSPECCION, etiquetaCiclo, formatoFecha, hoyISO, listaPuntosLugar, TIPOS_ACTIVIDAD, totalReunionPatrulla } from '../lib/etapas';
 
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
+// Toda reunión lleva inicio, inspección y cierre
+const FILAS_BASE = () => [
+  { hora: '11:00', actividad: 'Inicio: Rutina inicial', tipo: 'inicio', materiales: '', encargado: '' },
+  { hora: '11:05', actividad: 'Inspección', tipo: 'inspeccion', materiales: '', encargado: '' },
+  { hora: '12:55', actividad: 'Cierre (consejo de patrulla, avisos y porra)', tipo: 'cierre', materiales: '', encargado: '' },
+].map((a) => ({ ...a, id: nuevoId(), montaje: '', dinamica: '', variante: '', reto: '' }));
+const porHora = (a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99');
 import TablaEditable from '../components/TablaEditable.jsx';
 import ProgramaReunion from '../components/ProgramaReunion.jsx';
 
@@ -28,7 +35,7 @@ export default function Reuniones() {
   }
 
   const duplicar = (r) => {
-    const { id, puntajes, juegos, fecha, ...resto } = r;
+    const { id, puntajes, juegos, asistencia, inspeccion, fecha, ...resto } = r;
     setCopia({ ...resto, fecha: hoyISO() });
     setSel('nueva');
   };
@@ -66,6 +73,7 @@ const SECCIONES = [
   ['programa', 'Programa'],
   ['detalle', 'Ayuda al programa'],
   ['insumos', 'Insumos y anexos'],
+  ['inspeccion', 'Asistencia e inspección'],
   ['puntajes', 'Puntajes'],
 ];
 
@@ -85,9 +93,9 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
     return {
       lugar: '', horaInicio: '', horaFin: '', encargado: miembro?.nombre || '',
       participantes: activos ? `${activos} protagonistas — ${patrullas.length} patrullas` : '',
-      objetivo: '', fondo: datos.tema || '', impresos: '', otrosMateriales: '', anexos: [], puntajes: {}, juegos: {},
+      objetivo: '', fondo: datos.tema || '', impresos: '', otrosMateriales: '', anexos: [], puntajes: {}, juegos: {}, asistencia: {}, inspeccion: {},
       ...datos, fecha,
-      actividades: (datos.actividades || []).map((a) => (a.id ? a : { ...a, id: nuevoId() })),
+      actividades: (datos.actividades?.length ? datos.actividades : (r ? [] : FILAS_BASE().map((a) => ({ ...a, encargado: miembro?.nombre || '' })))).map((a) => (a.id ? a : { ...a, id: nuevoId() })),
       cicloId: datos.cicloId ?? cicloDeFecha(ciclos, fecha),
     };
   });
@@ -105,6 +113,13 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
     const n = v === '' ? '' : Math.max(0, Math.min(k === 'lugar' ? patrullas.length : max, Number(v)));
     setF((x) => ({ ...x, juegos: { ...x.juegos, [aid]: { ...(x.juegos?.[aid] || {}), [pid]: { ...(x.juegos?.[aid]?.[pid] || {}), [k]: n } } } }));
   };
+  const setPresente = (m, pid, on) => setF((x) => {
+    const a = { ...x.asistencia };
+    if (on) a[m.id] = pid; else delete a[m.id];
+    return { ...x, asistencia: a };
+  });
+  const setItem = (mid, key, on) => setF((x) => ({ ...x, inspeccion: { ...x.inspeccion, [mid]: { ...(x.inspeccion?.[mid] || {}), [key]: on } } }));
+  const todosPresentes = (pid, miembros) => setF((x) => ({ ...x, asistencia: { ...x.asistencia, ...Object.fromEntries(miembros.map((m) => [m.id, pid])) } }));
   const setAct = (i, k, v) => set('actividades', f.actividades.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
 
   const guardar = async (e) => {
@@ -123,7 +138,16 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
         juegos[a.id][p.id] = { ...Object.fromEntries(CRITERIOS.map((c) => [c.key, Number(j[c.key]) || 0])), lugar: Number(j.lugar) || 0 };
       }
     }
-    const data = { ...f, puntajes: limpio, juegos };
+    const asistencia = Object.fromEntries(Object.entries(f.asistencia || {}).filter(([, pat]) => patrullas.some((p) => p.id === pat)));
+    const inspeccion = {};
+    for (const id of Object.keys(asistencia)) {
+      const it = f.inspeccion?.[id] || {};
+      inspeccion[id] = Object.fromEntries(ITEMS_INSPECCION.filter((i) => it[i.key]).map((i) => [i.key, true]));
+    }
+    const nPres = Object.keys(asistencia).length;
+    const participantes = !f.participantesManual && nPres
+      ? `${nPres} protagonistas — ${new Set(Object.values(asistencia)).size} patrullas` : f.participantes;
+    const data = { ...f, participantes, actividades: [...f.actividades].sort(porHora), puntajes: limpio, juegos, asistencia, inspeccion };
     try {
       if (r) await updateDoc(ref('reuniones', r.id), data);
       else await addDoc(col('reuniones'), data);
@@ -167,7 +191,7 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
             <label>Hora de fin<input type="time" value={f.horaFin} onChange={(e) => set('horaFin', e.target.value)} /></label>
             <label>Lugar<input value={f.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="Ej.: Play de Cinco Esquinas" /></label>
             <label>Encargado<input value={f.encargado} onChange={(e) => set('encargado', e.target.value)} /></label>
-            <label>Participantes<input value={f.participantes} onChange={(e) => set('participantes', e.target.value)} /></label>
+            <label>Participantes<input value={f.participantes} onChange={(e) => setF((x) => ({ ...x, participantes: e.target.value, participantesManual: true }))} /></label>
             <label>Ciclo
               <select value={f.cicloId} onChange={(e) => set('cicloId', e.target.value)}>
                 <option value="">— Sin ciclo —</option>
@@ -194,10 +218,10 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
 
       {seccion === 'detalle' && (
         <>
-          <p className="muted">Explicación de cada actividad para quien la dirige. Se agrega a las actividades del cronograma.</p>
+          <p className="muted">Explicación de cada actividad para quien la dirige. Inicio, inspección y cierre son siempre iguales y no necesitan ayuda.</p>
           {f.actividades.length === 0 && <p className="empty">Primero agregá actividades en el cronograma.</p>}
           {f.actividades.map((a, i) => (
-            <fieldset key={i} style={{ marginBottom: 10 }}>
+            <fieldset key={i} hidden={ESTANDAR.includes(a.tipo)} style={{ marginBottom: 10 }}>
               <legend>{a.hora ? `${a.hora} · ` : ''}{a.actividad || `Actividad ${i + 1}`}</legend>
               <div className="form">
                 <label className="full">Montaje<textarea rows={2} value={a.montaje || ''} onChange={(e) => setAct(i, 'montaje', e.target.value)} /></label>
@@ -221,6 +245,71 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
             columnas={[{ key: 'titulo', label: 'Título', min: 200 }, { key: 'texto', label: 'Contenido', tipo: 'textarea', min: 320 }]}
             filas={f.anexos} onChange={(v) => set('anexos', v)} nueva={{ titulo: `Anexo ${String.fromCharCode(65 + f.anexos.length)} — `, texto: '' }} agregar="Agregar anexo" />
         </>
+      )}
+
+      {seccion === 'inspeccion' && (
+        patrullas.length === 0 ? <p className="empty">Primero creá las patrullas.</p> : (
+          <>
+            <p className="muted">
+              Marcá quién asistió; solo los presentes habilitan sus campos de inspección. Cada elemento vale 1 punto para su patrulla
+              y cada asistente suma 1 punto de asistencia. El uniforme completo solo aplica a protagonistas promesados.
+            </p>
+            {protagonistas.filter((x) => x.activo !== false).length === 0 && <p className="alert media">Registrá primero a los protagonistas en «Expedientes» y asignales patrulla.</p>}
+            {patrullas.map((p) => {
+              const miembros = protagonistas.filter((x) => x.activo !== false && x.patrullaId === p.id)
+                .sort((a, b) => `${a.nombre} ${a.apellidos}`.localeCompare(`${b.nombre} ${b.apellidos}`));
+              const d = desglosePatrulla(f, p.id, config);
+              const nPres = miembros.filter((m) => f.asistencia?.[m.id] === p.id).length;
+              return (
+                <fieldset key={p.id} style={{ marginBottom: 12 }}>
+                  <legend><span className="dot" style={{ background: p.color }} /> {p.nombre} · asistieron {nPres} de {miembros.length}</legend>
+                  {miembros.length === 0 ? <p className="empty">Esta patrulla no tiene protagonistas asignados.</p> : (
+                    <>
+                      <div className="row between" style={{ marginBottom: 6 }}>
+                        <button type="button" className="btn small" onClick={() => todosPresentes(p.id, miembros)}>Todos presentes</button>
+                        <span className="muted">Asistencia {d.asistencia} pts · Inspección {d.inspeccion} pts</span>
+                      </div>
+                      <div className="table-wrap">
+                        <table className="table insp">
+                          <thead>
+                            <tr>
+                              <th>Protagonista</th><th className="c">Presente</th>
+                              {ITEMS_INSPECCION.map((i) => <th key={i.key} className="c" title={i.label}>{i.corto}</th>)}
+                              <th className="c">Pts</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {miembros.map((m) => {
+                              const pres = f.asistencia?.[m.id] === p.id;
+                              const marcados = ITEMS_INSPECCION.filter((i) => pres && f.inspeccion?.[m.id]?.[i.key]).length;
+                              return (
+                                <tr key={m.id} style={pres ? null : { opacity: 0.6 }}>
+                                  <td><strong>{m.nombre} {m.apellidos}</strong>{m.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
+                                  <td className="c"><input type="checkbox" checked={pres} onChange={(e) => setPresente(m, p.id, e.target.checked)} aria-label={`${m.nombre} presente`} /></td>
+                                  {ITEMS_INSPECCION.map((i) => {
+                                    const bloqueado = !pres || (i.soloPromesado && !m.promesado);
+                                    return (
+                                      <td key={i.key} className="c">
+                                        <input type="checkbox" disabled={bloqueado} title={i.soloPromesado && !m.promesado ? 'No promesado' : i.label}
+                                          checked={!bloqueado && !!f.inspeccion?.[m.id]?.[i.key]} onChange={(e) => setItem(m.id, i.key, e.target.checked)}
+                                          aria-label={`${i.label} de ${m.nombre}`} />
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="c"><strong>{marcados}</strong></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </fieldset>
+              );
+            })}
+          </>
+        )
       )}
 
       {seccion === 'puntajes' && (
@@ -276,7 +365,7 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
             </p>
 
             <fieldset style={{ marginTop: 12 }}>
-              <legend>Puntaje general de la reunión (0–{max})</legend>
+              <legend>Comportamiento (0–{max})</legend>
               <div className="table-wrap">
                 <table className="table">
                   <thead><tr><th>Categoría</th>{patrullas.map((p) => <th key={p.id}><span className="dot" style={{ background: p.color }} /> {p.nombre}</th>)}</tr></thead>

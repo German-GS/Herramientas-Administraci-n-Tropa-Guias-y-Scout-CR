@@ -12,15 +12,28 @@ export const CARGOS = [
 ];
 
 // Categorías fijas que se puntúan en cada reunión
-// Puntaje general de la reunión (no ligado a un juego)
+// Puntaje general de la reunión (lo demás se calcula: juegos, asistencia, inspección)
 export const CATEGORIAS = [
-  { key: 'asistencia', label: 'Asistencia' },
-  { key: 'uniforme', label: 'Uniforme' },
-  { key: 'inspeccion', label: 'Inspección' },
   { key: 'comportamiento', label: 'Comportamiento' },
 ];
 
+// Elementos de inspección: 1 punto por elemento y por miembro presente
+export const ITEMS_INSPECCION = [
+  { key: 'lapiz', label: 'Lápiz / lapicero', corto: 'Lápiz' },
+  { key: 'panuelo', label: 'Pañuelo', corto: 'Pañuelo' },
+  { key: 'costurero', label: 'Costurero', corto: 'Costurero' },
+  { key: 'agua', label: 'Botella de agua', corto: 'Agua' },
+  { key: 'gorra', label: 'Gorra', corto: 'Gorra' },
+  { key: 'uniforme', label: 'Uniforme completo (solo promesados)', corto: 'Uniforme', soloPromesado: true },
+  { key: 'bordon', label: 'Bordón', corto: 'Bordón' },
+  { key: 'cuerda', label: 'Cuerda', corto: 'Cuerda' },
+];
+
+export const ESTANDAR = ['inicio', 'inspeccion', 'cierre']; // siempre iguales: no llevan ayuda al programa
 export const TIPOS_ACTIVIDAD = [
+  { v: 'inicio', l: 'Inicio (rutina)' },
+  { v: 'inspeccion', l: 'Inspección' },
+  { v: 'cierre', l: 'Cierre' },
   { v: 'activo', l: 'Juego activo' },
   { v: 'pasiva', l: 'Actividad pasiva' },
   { v: 'jefe', l: '5 minutos del jefe' },
@@ -148,7 +161,7 @@ export function listaPuntosLugar(config = CONFIG_DEFAULT) {
 
 const suma = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 
-// Puntos de una patrulla en una reunión: juegos activos (criterios + lugar) + puntaje general
+// Puntos de una patrulla en una reunión: juegos activos (criterios + lugar) + asistencia + inspección + general
 export function desglosePatrulla(reunion, pid, config = CONFIG_DEFAULT) {
   const crit = Object.fromEntries(CRITERIOS.map((c) => [c.key, 0]));
   const porLugar = listaPuntosLugar(config);
@@ -160,8 +173,11 @@ export function desglosePatrulla(reunion, pid, config = CONFIG_DEFAULT) {
     CRITERIOS.forEach((c) => { crit[c.key] += Number(x[c.key]) || 0; });
     if (x.lugar) lugar += porLugar[Number(x.lugar) - 1] || 0;
   }
+  const presentes = Object.entries(reunion?.asistencia || {}).filter(([, pat]) => pat === pid).map(([id]) => id);
+  const asistencia = presentes.length; // 1 punto por asistente
+  const inspeccion = presentes.reduce((t, id) => t + ITEMS_INSPECCION.filter((i) => reunion?.inspeccion?.[id]?.[i.key]).length, 0);
   const general = Object.fromEntries(CATEGORIAS.map((c) => [c.key, Number(reunion?.puntajes?.[pid]?.[c.key]) || 0]));
-  return { crit, lugar, general, total: suma(crit) + lugar + suma(general) };
+  return { crit, lugar, asistencia, inspeccion, general, total: suma(crit) + lugar + asistencia + inspeccion + suma(general) };
 }
 
 export const totalReunionPatrulla = (reunion, pid, config) => desglosePatrulla(reunion, pid, config).total;

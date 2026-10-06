@@ -3,14 +3,14 @@ import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
-import { alertasDe, CARGOS, edad, ETAPAS, formatoFecha, hoyISO, siguienteEtapa } from '../lib/etapas';
+import { alertasDe, CARGOS, ITEMS_INSPECCION, edad, ETAPAS, formatoFecha, hoyISO, siguienteEtapa } from '../lib/etapas';
 
 const VACIO = {
   nombre: '', apellidos: '', fechaNacimiento: '', patrullaId: '', cargo: 'Integrante',
   etapa: ETAPAS[0], fechaIngreso: hoyISO(), fechaInicioEtapa: hoyISO(),
   encargado: { nombre: '', telefono: '', parentesco: '' },
   medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '', seguro: '' },
-  notas: '', activo: true, historialEtapas: [],
+  notas: '', activo: true, promesado: false, fechaPromesa: '', historialEtapas: [],
 };
 
 export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
@@ -58,7 +58,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
                     <td><strong>{p.nombre} {p.apellidos}</strong></td>
                     <td>{edad(p.fechaNacimiento) ?? '—'}</td>
                     <td>{nombrePatrulla(p.patrullaId)}</td>
-                    <td>{p.cargo}</td>
+                    <td>{p.cargo}{p.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
                     <td><span className="badge">{p.etapa}</span></td>
                     <td>{formatoFecha(p.fechaInicioEtapa)}</td>
                     <td>{al.map((a, i) => <span key={i} className={`badge ${a.nivel}`} title={a.texto}>{a.tipo}</span>)}</td>
@@ -75,6 +75,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
 
 function Expediente({ p, patrullas, config, onCerrar }) {
   const { col, ref } = useGrupo();
+  const { docs: reuniones } = useCollection('reuniones', 'fecha');
   const [f, setF] = useState(() => ({
     ...VACIO, ...(p || {}),
     encargado: { ...VACIO.encargado, ...(p?.encargado || {}) },
@@ -156,6 +157,8 @@ function Expediente({ p, patrullas, config, onCerrar }) {
           </label>
           <label>Inicio de la etapa actual<input type="date" value={f.fechaInicioEtapa} onChange={(x) => set('fechaInicioEtapa', x.target.value)} /></label>
           <label className="full"><span><input type="checkbox" checked={f.activo !== false} onChange={(x) => set('activo', x.target.checked)} /> Activo en la Tropa</span></label>
+          <label className="full"><span><input type="checkbox" checked={!!f.promesado} onChange={(x) => set('promesado', x.target.checked)} /> Ya hizo su Promesa (promesado) — habilita «uniforme completo» en la inspección</span></label>
+          {f.promesado && <label>Fecha de la Promesa<input type="date" value={f.fechaPromesa || ''} onChange={(x) => set('fechaPromesa', x.target.value)} /></label>}
         </div>
         {p && siguienteEtapa(f.etapa) && (
           <button type="button" className="btn small" onClick={avanzarEtapa}>Registrar paso a {siguienteEtapa(f.etapa)}</button>
@@ -194,6 +197,21 @@ function Expediente({ p, patrullas, config, onCerrar }) {
           <label className="full">Medicamentos<textarea rows={2} value={f.medico.medicamentos} onChange={(x) => setSub('medico', 'medicamentos', x.target.value)} /></label>
         </div>
       </fieldset>
+
+      {p && (() => {
+        const tomadas = reuniones.filter((r) => r.fecha >= (f.fechaIngreso || '') && r.asistencia && Object.keys(r.asistencia).length > 0);
+        if (tomadas.length === 0) return null;
+        const asistidas = tomadas.filter((r) => r.asistencia[p.id]);
+        const posibles = ITEMS_INSPECCION.filter((i) => !i.soloPromesado || f.promesado).length;
+        const traidos = asistidas.reduce((t, r) => t + ITEMS_INSPECCION.filter((i) => r.inspeccion?.[p.id]?.[i.key]).length, 0);
+        return (
+          <fieldset>
+            <legend>Participación</legend>
+            <p>Asistió a <strong>{asistidas.length}</strong> de {tomadas.length} reuniones ({Math.round((asistidas.length / tomadas.length) * 100)} %).</p>
+            {asistidas.length > 0 && <p>Inspección: promedio de <strong>{(traidos / asistidas.length).toFixed(1)}</strong> de {posibles} elementos.</p>}
+          </fieldset>
+        );
+      })()}
 
       <fieldset>
         <legend>Notas de seguimiento</legend>

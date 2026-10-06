@@ -208,3 +208,8 @@ input[type=color] { padding: 2px; height: 38px; }
 }
 
 .tipo-doc { color: #555; font-style: italic; }
+
+.insp th.c, .insp td.c { text-align: center; padding-left: .25rem; padding-right: .25rem; }
+.insp td input[type=checkbox] { width: 20px; height: 20px; margin: 0; }
+.insp td:first-child, .insp th:first-child { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 140px; }
+fieldset[hidden] { display: none; }

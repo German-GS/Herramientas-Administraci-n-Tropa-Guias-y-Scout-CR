@@ -1,11 +1,12 @@
-import { fechaLarga, horaCorta, TIPOS_ACTIVIDAD } from '../lib/etapas';
+import { ESTANDAR, fechaLarga, horaCorta, TIPOS_ACTIVIDAD } from '../lib/etapas';
 
-const tipoL = (v) => TIPOS_ACTIVIDAD.find((t) => t.v === v)?.l;
+const tipoL = (v) => (ESTANDAR.includes(v) ? '' : TIPOS_ACTIVIDAD.find((t) => t.v === v)?.l);
+const porHora = (a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99');
 
 // Vista del «Programa de reunión» con el formato del documento de la Tropa (imprimible).
 export default function ProgramaReunion({ r }) {
-  const acts = r.actividades || [];
-  const detalle = acts.filter((a) => a.montaje || a.dinamica || a.variante || a.reto);
+  const acts = [...(r.actividades || [])].sort(porHora);
+  const detalle = acts.filter((a) => !ESTANDAR.includes(a.tipo)).filter((a) => a.montaje || a.dinamica || a.variante || a.reto);
   const rango = r.horaInicio ? `${horaCorta(r.horaInicio)}${r.horaFin ? ` a ${horaCorta(r.horaFin)}` : ''}` : '';
   return (
     <article className="doc">
