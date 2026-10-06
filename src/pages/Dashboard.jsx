@@ -4,6 +4,7 @@ import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
 import { listarBorradores, pendientesCiclo, resumenPendientes } from '../lib/cicloCompleto.js';
+import { cicloVigente, diasHasta } from '../lib/puntajes.js';
 import { alertasDe, CATEGORIAS, CRITERIOS, desglosePatrulla, etiquetaCiclo, formatoFecha, hoyISO } from '../lib/etapas';
 
 const ORDEN_NIVEL = { alta: 0, media: 1, info: 2 };
@@ -35,7 +36,7 @@ function Barras({ datos, valor }) {
   });
 }
 
-export default function Dashboard({ irAExpediente, irAlCiclo }) {
+export default function Dashboard({ irAExpediente, irAlCiclo, irATab }) {
   const { gid, ref } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
@@ -87,12 +88,35 @@ export default function Dashboard({ irAExpediente, irAlCiclo }) {
       const r = resumenPendientes(pe);
       out.push({ tipo: 'ciclo', nivel: 'media', nombre: etiquetaCiclo(c), texto: `Falta terminar el ciclo de programa: ${r.faltan} de ${r.total} secciones pendientes (${r.nombres.join(', ')}).`, accion: () => irAlCiclo?.(c.id) });
     }
+
+    // Fin del ciclo: se avisa con anticipación; al terminar el puntaje vuelve a cero y el histórico queda archivado
+    const vig = cicloVigente(ciclos, hoy);
+    const siguiente = ciclos.filter((x) => x.inicio > hoy).sort((a, b) => a.inicio.localeCompare(b.inicio))[0];
+    const aviso = Number(config.avisoCicloDias) || 30;
+    if (vig?.fin) {
+      const dias = diasHasta(vig.fin, hoy);
+      if (dias !== null && dias <= aviso) {
+        const cuando = dias === 0 ? 'termina hoy' : dias === 1 ? 'termina mañana' : `termina en ${dias} días`;
+        out.unshift({
+          tipo: 'ciclo', nivel: dias <= 7 ? 'alta' : 'media', nombre: etiquetaCiclo(vig),
+          texto: `El ciclo ${cuando} (${formatoFecha(vig.fin)}). Al terminar, el puntaje vuelve a cero y los resultados quedan guardados en el histórico. ${siguiente ? `El siguiente ciclo ya está creado (inicia el ${formatoFecha(siguiente.inicio)}).` : 'Todavía no existe el siguiente ciclo: prepará el nuevo ciclo.'}`,
+          accion: () => irAlCiclo?.(siguiente ? siguiente.id : 'nuevo'),
+        });
+      }
+    } else if (!vig && ciclos.length) {
+      const terminado = ciclos.filter((c) => c.fin && c.fin < hoy).sort((a, b) => a.fin.localeCompare(b.fin)).pop();
+      if (siguiente) {
+        out.unshift({ tipo: 'ciclo', nivel: 'info', nombre: etiquetaCiclo(siguiente), texto: `Inicia el ${formatoFecha(siguiente.inicio)}. Hasta entonces el puntaje está en cero.`, accion: () => irAlCiclo?.(siguiente.id) });
+      } else if (terminado) {
+        out.unshift({ tipo: 'ciclo', nivel: 'alta', nombre: etiquetaCiclo(terminado), texto: `Terminó el ${formatoFecha(terminado.fin)} y no hay un ciclo vigente: el puntaje está en cero. Creá el siguiente ciclo.`, accion: () => irAlCiclo?.('nuevo') });
+      }
+    }
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gid, ciclos, protagonistas]);
+  }, [gid, ciclos, protagonistas, config.avisoCicloDias]);
 
-  const cicloActual = ciclos.find((c) => c.inicio <= hoy && (!c.fin || c.fin >= hoy))
-    || ciclos[ciclos.length - 1];
+  const cicloActual = cicloVigente(ciclos, hoy);
+  const ultimoTerminado = ciclos.filter((c) => c.fin && c.fin < hoy).sort((a, b) => a.fin.localeCompare(b.fin)).pop();
   const ultima = [...reuniones].reverse()[0];
 
   // Puntos de cada patrulla, desglosados, en el ciclo actual o en la última reunión
@@ -119,7 +143,7 @@ export default function Dashboard({ irAExpediente, irAlCiclo }) {
   const nReuniones = datos[0]?.reuniones ?? 0;
   const titulo = alcance === 'ultima'
     ? (ultima ? `Última reunión (${formatoFecha(ultima.fecha)})` : 'Última reunión')
-    : (cicloActual ? etiquetaCiclo(cicloActual) : 'Ciclo actual');
+    : (cicloActual ? etiquetaCiclo(cicloActual) : 'Sin ciclo vigente');
 
   return (
     <>
@@ -139,7 +163,14 @@ export default function Dashboard({ irAExpediente, irAlCiclo }) {
         <div className="card">
           <h2>Puntaje general</h2>
           <p className="muted">{titulo} · {nReuniones} {nReuniones === 1 ? 'reunión' : 'reuniones'}</p>
-          {!cicloActual && alcance === 'ciclo' && <p className="empty">Creá un ciclo en «Ciclos» para empezar a sumar.</p>}
+          {!cicloActual && alcance === 'ciclo' && (
+            <div className="alert info">
+              {ciclos.length === 0
+                ? 'Creá un ciclo en «Ciclos» para empezar a sumar puntos.'
+                : <>No hay un ciclo vigente, así que el puntaje parte de cero.{ultimoTerminado ? ` Los resultados del ${etiquetaCiclo(ultimoTerminado)} quedaron guardados en el histórico.` : ''}{' '}
+                  <button type="button" className="link" onClick={() => irATab?.('historico')}>Ver el histórico →</button></>}
+            </div>
+          )}
           {ranking.map((r, i) => (
             <div className="rank" key={r.id}>
               <div className="pos">{i === 0 && r.total > 0 ? '🏆' : i + 1}</div>

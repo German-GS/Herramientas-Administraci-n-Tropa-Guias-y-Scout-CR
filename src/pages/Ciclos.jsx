@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
@@ -275,8 +276,13 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
     e?.preventDefault();
     setGuardando(true);
     try {
+      let id = c?.id;
       if (c) await updateDoc(ref('ciclos', c.id), cicloFinal);
-      else await addDoc(col('ciclos'), cicloFinal);
+      else id = (await addDoc(col('ciclos'), cicloFinal)).id;
+      // Las reuniones y los puntos extra que aún no tenían ciclo y caen en sus fechas pasan a este ciclo
+      const sinCiclo = (x) => !x.cicloId && x.fecha >= cicloFinal.inicio && (!cicloFinal.fin || x.fecha <= cicloFinal.fin);
+      const sueltas = [...reuniones.filter(sinCiclo).map((r) => ref('reuniones', r.id)), ...extras.filter(sinCiclo).map((e) => ref('puntosExtra', e.id))];
+      if (sueltas.length) { const lote = writeBatch(db); sueltas.forEach((d) => lote.update(d, { cicloId: id })); await lote.commit(); }
       borrarBorrador(gid, c?.id);
       baseline.current = JSON.stringify(f); // evita que el autoguardado recree el borrador al cerrar
       onCerrar();
@@ -656,6 +662,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
       {seccion === 'resultados' && c && (
         <>
           <p className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</p>
+          {c.historico && <p className="alert info">Este ciclo terminó: su resultado final quedó archivado en «Histórico» el {formatoFecha((c.historico.archivado || '').slice(0, 10))}.</p>}
           <div className="table-wrap">
             <table className="table cards-movil">
               <thead><tr><th>#</th><th>Patrulla</th>{CRITERIOS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Lugares</th><th>Asistencia</th><th>Inspección</th>{CATEGORIAS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Extra</th><th>Total</th></tr></thead>

@@ -53,6 +53,7 @@ export const CONFIG_DEFAULT = {
   edadPasoSeccion: 15,     // edad en que se evalúa el paso a Wak
   puntajeMaxCategoria: 10, // puntaje máximo de cada criterio
   puntosLugar: '10, 7, 5, 3', // puntos por 1.º, 2.º, 3.º, 4.º lugar en un juego activo
+  avisoCicloDias: 30,       // días antes del fin de un ciclo para empezar a recordarlo
 };
 
 export function siguienteEtapa(etapa) {

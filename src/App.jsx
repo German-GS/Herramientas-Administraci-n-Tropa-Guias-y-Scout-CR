@@ -13,6 +13,8 @@ import Membresia from './pages/Membresia.jsx';
 import Reuniones from './pages/Reuniones.jsx';
 import PuntosExtra from './pages/PuntosExtra.jsx';
 import Ciclos from './pages/Ciclos.jsx';
+import Historico from './pages/Historico.jsx';
+import ArchivadorCiclos from './components/ArchivadorCiclos.jsx';
 import Dirigentes from './pages/Dirigentes.jsx';
 import Ajustes from './pages/Ajustes.jsx';
 
@@ -21,6 +23,7 @@ const ICONOS = {
   reuniones: 'M7 3v4M17 3v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
   puntos: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   ciclos: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3',
+  historico: 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2',
   protagonistas: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
   membresia: 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5 17a3 3 0 0 1 6 0M14 9h4M14 13h4',
   patrullas: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a7 7 0 0 1 4 6',
@@ -33,6 +36,7 @@ const TABS = [
   { key: 'reuniones', label: 'Reuniones', comp: Reuniones },
   { key: 'puntos', label: 'Puntos extra', comp: PuntosExtra },
   { key: 'ciclos', label: 'Ciclos', comp: Ciclos },
+  { key: 'historico', label: 'Histórico', comp: Historico },
   { key: 'membresia', label: 'Membresía', comp: Membresia },
   { key: 'protagonistas', label: 'Expedientes', comp: Protagonistas },
   { key: 'patrullas', label: 'Patrullas', comp: Patrullas },
@@ -102,9 +106,11 @@ function Panel({ user, acceso, onBloquear }) {
   const ir = (key) => { setTab(key); setMenu(false); if (key !== 'protagonistas') setAbrirExpediente(null); };
   const irAExpediente = (id) => { setAbrirExpediente(id); setTab('protagonistas'); };
   const irAlCiclo = (id) => { setAbrirCiclo(id); setTab('ciclos'); };
+  const irATab = (k) => { setMenu(false); setTab(k); };
 
   return (
     <GrupoProvider gid={acceso.gid} grupo={acceso.grupo} miembro={acceso.miembro}>
+      <ArchivadorCiclos />
       <div className={menu ? 'shell abierto' : 'shell'}>
         <div className="mobilebar">
           <button className="hamb" onClick={() => setMenu(true)} aria-label="Abrir menú">
@@ -153,7 +159,7 @@ function Panel({ user, acceso, onBloquear }) {
         </aside>
         <main className="content">
           <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
-            limpiarExpediente={() => setAbrirExpediente(null)} irAlCiclo={irAlCiclo} abrirCiclo={abrirCiclo}
+            limpiarExpediente={() => setAbrirExpediente(null)} irAlCiclo={irAlCiclo} irATab={irATab} abrirCiclo={abrirCiclo}
             limpiarCiclo={() => setAbrirCiclo(null)} esJefe={esJefe} />
         </main>
       </div>

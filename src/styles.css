@@ -405,3 +405,9 @@ form.card > fieldset:last-of-type { margin-bottom: 1.2rem; }
 .brujula-punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .3rem; }
 .brujula-punto.grande { width: 16px; height: 16px; margin: 0; box-shadow: inset 0 0 0 2px rgba(255,255,255,.55); }
 .brujula-chip { display: inline-flex; align-items: center; font-size: .78rem; font-weight: 700; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: .1rem .55rem; }
+
+/* Histórico */
+.desglose { margin-top: 10px; }
+.desglose > summary { cursor: pointer; color: var(--tropa-dark); font-weight: 600; padding: .3rem 0; }
+.lista-extras { margin: .3rem 0 0 1rem; padding: 0; }
+.lista-extras li { margin-bottom: .2rem; }

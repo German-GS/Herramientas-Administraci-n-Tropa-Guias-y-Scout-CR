@@ -20,6 +20,7 @@ export default function Ajustes() {
       edadPasoSeccion: Number(f.edadPasoSeccion),
       puntajeMaxCategoria: Number(f.puntajeMaxCategoria),
       puntosLugar: String(f.puntosLugar ?? ''),
+      avisoCicloDias: Number(f.avisoCicloDias),
     });
     setOk(true);
     setTimeout(() => setOk(false), 2000);
@@ -40,6 +41,7 @@ export default function Ajustes() {
         <div className="form">
           <label>Meses de referencia por etapa<input type="number" min={1} value={f.mesesPorEtapa} onChange={(e) => setF({ ...f, mesesPorEtapa: e.target.value })} /></label>
           <label>Avisar con (días) de anticipación<input type="number" min={0} value={f.avisoAnticipadoDias} onChange={(e) => setF({ ...f, avisoAnticipadoDias: e.target.value })} /></label>
+          <label>Avisar con (días) antes de que termine un ciclo<input type="number" min={1} value={f.avisoCicloDias ?? 30} onChange={(e) => setF({ ...f, avisoCicloDias: e.target.value })} /></label>
           <label>Edad para evaluar paso a Wak<input type="number" min={10} value={f.edadPasoSeccion} onChange={(e) => setF({ ...f, edadPasoSeccion: e.target.value })} /></label>
           <label>Puntaje máximo por criterio (juegos)<input type="number" min={1} value={f.puntajeMaxCategoria} onChange={(e) => setF({ ...f, puntajeMaxCategoria: e.target.value })} /></label>
           <label className="full">Puntos por lugar en un juego activo (1.º, 2.º, 3.º…)
