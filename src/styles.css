@@ -355,3 +355,17 @@ body { overflow-x: hidden; }
 .btn.accion { background: var(--tropa-soft); border-color: var(--tropa); color: var(--tropa-dark); font-weight: 600; min-height: 40px; border-radius: 10px; }
 .btn.accion:hover { background: var(--tropa); border-color: var(--tropa); color: #fff; }
 .btn.agregar:focus-visible, .btn.accion:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+/* Tablas editables de progresión en celular: áreas en dos columnas, casilla junto a su nombre */
+@media (max-width: 860px) {
+  .editable td:empty { display: none; }
+  .editable td.c input { margin: 0; flex: none; }
+  .editable td.c::before { order: 2; margin: 0; font-size: .92rem; color: var(--ink); }
+  .editable.prog tr { display: grid; grid-template-columns: 1fr 1fr; gap: .1rem .8rem; }
+  .editable.prog td { grid-column: 1 / -1; }
+  .editable.prog td[data-label="#"] { display: none; }
+  .editable.prog td.c { grid-column: auto; min-height: 42px; padding: .2rem 0; }
+  .editable.prog tr.totales { background: var(--tropa-soft); border-color: var(--tropa); }
+  .editable.prog tr.totales td.c strong { order: 1; min-width: 1.6rem; text-align: center; font-size: 1.1rem; color: var(--navy); }
+  .editable.prog tr.totales td:first-child { font-size: 1rem; }
+}
