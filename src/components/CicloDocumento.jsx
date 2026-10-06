@@ -36,7 +36,7 @@ export default function CicloDocumento({ c, protagonistas, patrullas, grupo }) {
         ))}</tbody>
       </table>
       <p><b>Logro del Objetivo propuesto en el Ciclo anterior:</b> SI ({ev.logro === 'si' ? 'X' : ' '}) NO ({ev.logro === 'no' ? 'X' : ' '}) PARCIAL ({ev.logro === 'parcial' ? 'X' : ' '}) <b>Detalle:</b> {ev.logroDetalle}</p>
-      <p><b>Logro de los Objetivos específicos en el Ciclo anterior:</b> {ev.logroEspecificos}</p>
+      <p><b>Logro de los Objetivos específicos en el Ciclo anterior:</b> SI ({ev.logroEspecificosEstado === 'si' ? 'X' : ' '}) NO ({ev.logroEspecificosEstado === 'no' ? 'X' : ' '}) PARCIAL ({ev.logroEspecificosEstado === 'parcial' ? 'X' : ' '}) <b>Detalle:</b> {ev.logroEspecificos}</p>
 
       <h2>Diagnóstico</h2>
       <p><b>¿Cuál actividad LES GUSTÓ y por qué?</b> {ev.gusto}</p>
@@ -88,8 +88,8 @@ export default function CicloDocumento({ c, protagonistas, patrullas, grupo }) {
 
       <h2>Resumen de Membresía</h2>
       <table className="doc-tabla">
-        <thead><tr><th># Nuevos ingresos / juveniles</th><th># Partida de miembros</th><th>Total de miembros activos</th></tr></thead>
-        <tbody><tr><td>{m.nuevos}</td><td>{m.partidas}</td><td>{activos}</td></tr></tbody>
+        <thead><tr><th># Nuevos ingresos / juveniles</th><th># Partida de miembros</th><th># de dirigentes de la sección</th><th>Total de miembros activos</th></tr></thead>
+        <tbody><tr><td>{m.nuevos}</td><td>{m.partidas}</td><td>{m.dirigentes}</td><td>{activos}</td></tr></tbody>
       </table>
       <p><b>¿Sabe por qué se dio la deserción? (indicar el motivo):</b> {m.desercion}</p>
 

@@ -297,3 +297,15 @@ body { overflow-x: hidden; }
   .insp.cards-movil td.total-mov::before { order: 0; }
   .insp.cards-movil td.c:has(input:disabled) { opacity: .45; }
 }
+
+/* Inicio: puntajes por criterio */
+.sec-dash { margin: 1.4rem 0 .6rem; }
+.grid.criterios { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.criterio h3 { margin-bottom: .1rem; }
+.criterio.destacado { grid-column: span 2; border-top-color: var(--navy); background: linear-gradient(180deg, var(--tropa-soft), #fff 70%); }
+.criterio.destacado h3 { font-size: 1.15rem; }
+.barra-fila { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; align-items: center; gap: .6rem; padding: .3rem 0; }
+.barra-nombre { font-size: .9rem; display: flex; align-items: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barra-valor { min-width: 3rem; text-align: right; }
+.criterio.destacado .barra-valor { font-size: 1.15rem; color: var(--navy); }
+@media (max-width: 860px) { .criterio.destacado { grid-column: auto; } }

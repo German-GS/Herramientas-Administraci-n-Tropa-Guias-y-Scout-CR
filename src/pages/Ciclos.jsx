@@ -13,13 +13,37 @@ export default function Ciclos() {
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
   const { docs: extras } = useCollection('puntosExtra', 'fecha');
+  const { docs: protagonistas } = useCollection('protagonistas');
+  const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const [sel, setSel] = useState(null);
   const [vistaDirecta, setVistaDirecta] = useState(false);
+  const [base, setBase] = useState(null);
+  const [avisos, setAvisos] = useState(null);
+  const [importando, setImportando] = useState(false);
+  const [errorImp, setErrorImp] = useState('');
+
+  const importar = async (e) => {
+    const archivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!archivo) return;
+    setImportando(true); setErrorImp('');
+    try {
+      const { importarPdfCiclo } = await import('../lib/cicloPdf.js');
+      const { datos, avisos: av } = await importarPdfCiclo(await archivo.arrayBuffer(), { protagonistas, patrullas });
+      const limpio = JSON.parse(JSON.stringify(datos)); // quita valores indefinidos (Firestore no los acepta)
+      const lleno = Object.fromEntries(Object.entries(limpio).filter(([, v]) => v !== ''));
+      setBase({ ...lleno, fecha: lleno.fecha || hoyISO() });
+      setAvisos(av);
+      setSel('nuevo');
+    } catch (err) {
+      setErrorImp(err.message || 'No se pudo leer el PDF.');
+    } finally { setImportando(false); }
+  };
 
   if (sel) {
     const c = sel === 'nuevo' ? null : ciclos.find((x) => x.id === sel);
-    return <EditorCiclo key={sel + (vistaDirecta ? 'v' : '')} c={c} ciclos={ciclos} reuniones={reuniones} extras={extras} vistaInicial={vistaDirecta}
-      onCerrar={() => { setSel(null); setVistaDirecta(false); }} />;
+    return <EditorCiclo key={sel + (vistaDirecta ? 'v' : '') + (base ? 'b' : '')} c={c} base={base} avisos={avisos} ciclos={ciclos} reuniones={reuniones} extras={extras} vistaInicial={vistaDirecta}
+      onCerrar={() => { setSel(null); setVistaDirecta(false); setBase(null); setAvisos(null); }} />;
   }
 
   const borrar = async (c) => {
@@ -30,10 +54,31 @@ export default function Ciclos() {
   const hoy = hoyISO();
 
   return (
+    <>
+    <div className="card leyenda">
+      <h2>Ciclo de Programa con el formulario oficial</h2>
+      <p>
+        La Asociación presenta el ciclo con su <strong>herramienta oficial en PDF</strong>. El sistema trabaja con ese mismo formulario:
+        podés llenarlo aquí o en el PDF, y pasar los datos de un lado al otro sin volver a escribirlos.
+      </p>
+      <ol>
+        <li><strong>Llenalo aquí</strong> con «+ Nuevo ciclo de programa», o <strong>descargá el formulario oficial</strong> y llenalo en tu lector de PDF.</li>
+        <li><strong>Subí el PDF lleno.</strong> El sistema carga la evaluación, la progresión personal, los objetivos, el cronograma, la membresía y las solicitudes a la Junta.</li>
+        <li><strong>Revisá y guardá.</strong> Dentro del ciclo, «Generar PDF oficial» te entrega el formulario ya lleno para presentarlo a la Junta de Grupo.</li>
+      </ol>
+      <div className="row">
+        <a className="btn" href="/formularios/Herramienta_Ciclo_de_Programa.pdf" download>⬇ Descargar formulario oficial (PDF)</a>
+        <label className="btn primary" style={{ cursor: 'pointer', margin: 0 }}>
+          {importando ? 'Leyendo el PDF…' : '⬆ Subir formulario lleno (PDF)'}
+          <input type="file" accept=".pdf,application/pdf" onChange={importar} disabled={importando} hidden />
+        </label>
+      </div>
+      {errorImp && <p className="error" role="alert">{errorImp}</p>}
+    </div>
     <div className="card">
       <div className="row between">
         <h2>Ciclos de programa</h2>
-        <button className="btn primary" onClick={() => setSel('nuevo')}>+ Nuevo ciclo de programa</button>
+        <button className="btn primary" onClick={() => { setBase(null); setAvisos(null); setSel('nuevo'); }}>+ Nuevo ciclo de programa</button>
       </div>
       {ciclos.length === 0 && <p className="empty">Creá el ciclo de programa vigente para empezar a sumar puntajes.</p>}
       {[...ciclos].reverse().map((c) => {
@@ -53,6 +98,7 @@ export default function Ciclos() {
         );
       })}
     </div>
+    </>
   );
 }
 
@@ -65,7 +111,7 @@ const SECCIONES = [
   ['resultados', 'Puntaje final'],
 ];
 
-function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCerrar }) {
+function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial = false, onCerrar }) {
   const { col, ref, grupo, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
@@ -73,9 +119,10 @@ function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCer
   const [seccion, setSeccion] = useState('datos');
   const [vista, setVista] = useState(vistaInicial);
   const [guardando, setGuardando] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
   const [f, setF] = useState(() => {
-    const { id, ...d } = c || {};
+    const { id, ...d } = c || base || {};
     return {
       numero: String(ciclos.length + 1), anio: new Date().getFullYear(), nombre: '', inicio: hoyISO(), fin: '', fecha: hoyISO(),
       nombreSeccion: `Tropa ${grupo?.numero || ''}`.trim(), objetivoGeneral: '', objetivosEspecificos: '',
@@ -101,6 +148,23 @@ function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCer
     setEv('actividades', anterior.cronograma.map((a) => ({ ...a, eval: '', obs: '' })));
   };
   const cargarPatrullas = () => set('equipos', patrullas.map((p) => ({ patrullaId: p.id, nombre: p.nombre, general: '', especificos: '' })));
+
+  const generarPdf = async () => {
+    setGenerando(true);
+    try {
+      const { generarPdfCiclo } = await import('../lib/cicloPdf.js');
+      const plantilla = await (await fetch('/formularios/Herramienta_Ciclo_de_Programa.pdf')).arrayBuffer();
+      const { bytes, avisos: av } = await generarPdfCiclo({ plantilla, ciclo: f, protagonistas, patrullas, grupo });
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `Ciclo_${f.numero || ''}_${f.anio || ''}_Tropa_${grupo?.numero || ''}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      if (av.length) alert(`PDF generado. Tené en cuenta:\n\n• ${av.join('\n• ')}`);
+    } catch (err) {
+      alert(`No se pudo generar el PDF: ${err.message}`);
+    } finally { setGenerando(false); }
+  };
 
   const guardar = async (e) => {
     e?.preventDefault();
@@ -154,6 +218,13 @@ function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCer
         <h2>{c ? etiquetaCiclo(c) : 'Nuevo ciclo de programa'}</h2>
         <button type="button" className="btn" onClick={onCerrar}>← Volver</button>
       </div>
+      {avisos && (
+        <div className={avisos.length ? 'alert media' : 'alert info'} role="status">
+          <strong>Formulario importado desde PDF.</strong> Revisá los datos y guardá el ciclo.
+          {avisos.length > 0 && <ul style={{ margin: '.4rem 0 0 1rem', padding: 0 }}>{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>}
+        </div>
+      )}
+
       <div className="seg multi">
         {SECCIONES.filter(([k]) => k !== 'resultados' || c).map(([k, l]) => (
           <button key={k} type="button" className={seccion === k ? 'on' : ''} onClick={() => setSeccion(k)}>{l}</button>
@@ -195,7 +266,12 @@ function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCer
               </select>
             </label>
             <label>Detalle<input value={f.evaluacion.logroDetalle} onChange={(e) => setEv('logroDetalle', e.target.value)} /></label>
-            <label className="full">Logro de los objetivos específicos en el ciclo anterior<textarea rows={3} value={f.evaluacion.logroEspecificos} onChange={(e) => setEv('logroEspecificos', e.target.value)} /></label>
+            <label>Logro de los objetivos específicos en el ciclo anterior
+              <select value={f.evaluacion.logroEspecificosEstado || ''} onChange={(e) => setEv('logroEspecificosEstado', e.target.value)}>
+                <option value="">—</option><option value="si">Sí</option><option value="parcial">Parcial</option><option value="no">No</option>
+              </select>
+            </label>
+            <label>Detalle<input value={f.evaluacion.logroEspecificos} onChange={(e) => setEv('logroEspecificos', e.target.value)} /></label>
           </div>
           <h3 style={{ marginTop: 14 }}>Diagnóstico</h3>
           <div className="form">
@@ -282,6 +358,7 @@ function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCer
           <div className="form">
             <label># Nuevos ingresos / juveniles<input type="number" min={0} value={f.membresia.nuevos} onChange={(e) => setMem('nuevos', e.target.value)} /></label>
             <label># Partida de miembros<input type="number" min={0} value={f.membresia.partidas} onChange={(e) => setMem('partidas', e.target.value)} /></label>
+            <label># de dirigentes de la sección<input type="number" min={0} value={f.membresia.dirigentes ?? ''} onChange={(e) => setMem('dirigentes', e.target.value)} /></label>
             <label>Total de miembros activos<input value={filas.length} disabled /></label>
             <label className="full">¿Sabe por qué se dio la deserción? (motivo)<textarea rows={2} value={f.membresia.desercion} onChange={(e) => setMem('desercion', e.target.value)} /></label>
           </div>
@@ -317,6 +394,7 @@ function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCer
       <div className="row" style={{ marginTop: 14 }}>
         <button className="btn primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar ciclo'}</button>
         <button type="button" className="btn" onClick={() => setVista(true)}>Ver / imprimir documento</button>
+        <button type="button" className="btn" onClick={generarPdf} disabled={generando}>{generando ? 'Generando PDF…' : '⬇ Generar PDF oficial'}</button>
       </div>
     </form>
   );
