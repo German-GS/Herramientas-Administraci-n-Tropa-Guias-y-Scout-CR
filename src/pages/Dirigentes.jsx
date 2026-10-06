@@ -47,7 +47,7 @@ export default function Dirigentes() {
             <div key={m.id} className="item" style={m.estado === 'suspendido' ? { opacity: 0.6 } : null}>
               <div>
                 <strong>{m.nombre || m.email}</strong> {yo && <span className="muted">(vos)</span>}
-                <div className="muted">{m.email}</div>
+                <div className="muted">{m.cargo ? `${m.cargo} · ` : ''}{m.email}{m.telefono ? ` · ${m.telefono}` : ''}</div>
                 <span className={`badge ${m.estado === 'pendiente' ? 'media' : ''}`}>{m.rol === 'jefe' ? 'Jefe de Grupo' : 'Dirigente'}</span>{' '}
                 <span className="badge">{ETIQUETA[m.estado] || m.estado}</span>
               </div>

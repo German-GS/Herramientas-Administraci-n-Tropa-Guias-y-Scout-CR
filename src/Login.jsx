@@ -16,11 +16,16 @@ const MENSAJES = {
   'auth/network-request-failed': 'Sin conexión. Revisá tu internet.',
   'auth/operation-not-allowed': 'El acceso con correo y contraseña no está habilitado en Firebase.',
 };
+export const CARGOS_DIRIGENTE = ['Jefe de Grupo', 'Jefe de Sección Tropa', 'Subjefe de Sección', 'Dirigente', 'Asistente'];
+export const REGISTRO_KEY = 'tropa.registro';
 const msg = (e) => MENSAJES[e.code] || `${e.code || 'Error'}: ${e.message}`;
 
 export default function Login() {
   const [modo, setModo] = useState('entrar'); // entrar | crear | recuperar
-  const [f, setF] = useState({ nombre: '', email: '', clave: '', clave2: '' });
+  const [f, setF] = useState({
+    nombre: '', telefono: '', cargo: CARGOS_DIRIGENTE[0], email: '', clave: '', clave2: '',
+    grupoModo: 'nuevo', numero: '', localidad: '', codigo: '',
+  });
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [ocupado, setOcupado] = useState(false);
@@ -43,6 +48,15 @@ export default function Login() {
         const { user } = await createUserWithEmailAndPassword(auth, email, f.clave);
         if (f.nombre.trim()) await updateProfile(user, { displayName: f.nombre.trim() });
         await sendEmailVerification(user);
+        // El grupo se crea (o se solicita) apenas confirme el correo: las reglas exigen correo verificado
+        try {
+          localStorage.setItem(REGISTRO_KEY, JSON.stringify({
+            email, nombre: f.nombre.trim(), telefono: f.telefono.trim(), cargo: f.cargo,
+            grupo: f.grupoModo === 'nuevo'
+              ? { modo: 'nuevo', numero: f.numero.trim(), localidad: f.localidad.trim() }
+              : { modo: 'unirse', codigo: f.codigo.trim().toUpperCase() },
+          }));
+        } catch { /* sin almacenamiento: se pedirá el grupo después */ }
       } else {
         await sendPasswordResetEmail(auth, email);
         setInfo('Si el correo tiene cuenta, te enviamos un enlace para crear una contraseña nueva. Revisá también el spam.');
@@ -74,9 +88,22 @@ export default function Login() {
 
         <form className="login-form" onSubmit={enviar}>
           {modo === 'crear' && (
-            <label>Nombre completo
-              <input value={f.nombre} onChange={set('nombre')} autoComplete="name" required />
-            </label>
+            <>
+              <p className="sec-titulo">Datos del dirigente</p>
+              <label>Nombre completo
+                <input value={f.nombre} onChange={set('nombre')} autoComplete="name" required />
+              </label>
+              <div className="dos">
+                <label>Teléfono
+                  <input type="tel" value={f.telefono} onChange={set('telefono')} autoComplete="tel" required />
+                </label>
+                <label>Cargo
+                  <select value={f.cargo} onChange={set('cargo')}>
+                    {CARGOS_DIRIGENTE.map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </label>
+              </div>
+            </>
           )}
           <label>Correo electrónico
             <input type="email" value={f.email} onChange={set('email')} autoComplete="email" required />
@@ -92,6 +119,30 @@ export default function Login() {
               <input type="password" value={f.clave2} onChange={set('clave2')} autoComplete="new-password" required />
             </label>
           )}
+          {modo === 'crear' && (
+            <>
+              <p className="sec-titulo">Grupo Guía y Scout</p>
+              <div className="seg" style={{ margin: 0 }}>
+                <button type="button" className={f.grupoModo === 'nuevo' ? 'on' : ''} onClick={() => setF({ ...f, grupoModo: 'nuevo' })}>Registrar mi grupo</button>
+                <button type="button" className={f.grupoModo === 'unirse' ? 'on' : ''} onClick={() => setF({ ...f, grupoModo: 'unirse' })}>Ya existe (tengo código)</button>
+              </div>
+              {f.grupoModo === 'nuevo' ? (
+                <div className="dos">
+                  <label>Número de grupo
+                    <input value={f.numero} onChange={set('numero')} inputMode="numeric" placeholder="Ej.: 307" required />
+                  </label>
+                  <label>Localidad
+                    <input value={f.localidad} onChange={set('localidad')} placeholder="Ej.: San Pedro" required />
+                  </label>
+                </div>
+              ) : (
+                <label>Código del grupo
+                  <input value={f.codigo} onChange={set('codigo')} maxLength={8} required placeholder="Te lo da el Jefe de Grupo"
+                    style={{ textTransform: 'uppercase', letterSpacing: '.15em' }} />
+                </label>
+              )}
+            </>
+          )}
           {error && <p className="error" role="alert">{error}</p>}
           {info && <p className="ok" role="status">{info}</p>}
           <button className="btn primary block" disabled={ocupado}>
@@ -103,7 +154,7 @@ export default function Login() {
         {modo === 'recuperar' && <button type="button" className="link" onClick={() => cambiar('entrar')}>← Volver a ingresar</button>}
         {modo === 'crear' && (
           <p className="muted" style={{ marginTop: 10 }}>
-            Después de crear la cuenta confirmás tu correo y el Jefe de Grupo debe autorizar tu acceso.
+            Confirmás tu correo y se registra el grupo. Si te unís a un grupo existente, su Jefe de Grupo debe aprobarte.
           </p>
         )}
       </div>

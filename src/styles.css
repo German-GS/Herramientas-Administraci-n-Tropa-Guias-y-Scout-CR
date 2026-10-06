@@ -104,6 +104,11 @@ input[type=color] { padding: 2px; height: 38px; }
 .codigo { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.7rem; letter-spacing: .25em; font-weight: 800; color: var(--navy);
   background: var(--tropa-soft); border: 2px dashed var(--tropa); border-radius: 10px; padding: .6rem; text-align: center; user-select: all; }
 
+.sec-titulo { margin: .4rem 0 0; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--tropa-dark); border-bottom: 1px solid var(--line); padding-bottom: .25rem; }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+@media (max-width: 460px) { .dos { grid-template-columns: 1fr; } }
+.login-card.wide { max-height: 100vh; overflow-y: auto; }
+
 /* Menú lateral */
 .shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; }
 .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--navy); color: #fff; border-right: 4px solid var(--tropa); overflow-y: auto; }
