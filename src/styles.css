@@ -213,3 +213,18 @@ input[type=color] { padding: 2px; height: 38px; }
 .insp td input[type=checkbox] { width: 20px; height: 20px; margin: 0; }
 .insp td:first-child, .insp th:first-child { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 140px; }
 fieldset[hidden] { display: none; }
+
+.asa { cursor: grab; touch-action: none; user-select: none; border: 0; background: transparent; color: var(--muted); font-size: 1.3rem; line-height: 1; padding: .35rem .3rem; border-radius: 6px; }
+.asa:hover, .asa:focus-visible { background: var(--tropa-soft); color: var(--tropa-dark); }
+.asa:active { cursor: grabbing; }
+.asa-celda { width: 34px; padding-left: 0 !important; padding-right: 0 !important; }
+.solo-movil { display: none; font-size: .8rem; }
+.editable tr.arrastrando { opacity: .45; }
+.editable tr.destino-arriba td { box-shadow: inset 0 3px 0 var(--tropa); }
+.editable tr.destino-abajo td { box-shadow: inset 0 -3px 0 var(--tropa); }
+@media (max-width: 860px) {
+  .editable td.asa-celda { width: auto; padding: 0 0 .25rem !important; }
+  .editable td.asa-celda::before { content: none; }
+  .asa { width: 100%; text-align: left; background: var(--tropa-soft); color: var(--tropa-dark); padding: .5rem .6rem; }
+  .solo-movil { display: inline; }
+}

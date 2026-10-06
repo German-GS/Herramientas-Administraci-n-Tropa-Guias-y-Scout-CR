@@ -147,7 +147,7 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
     const nPres = Object.keys(asistencia).length;
     const participantes = !f.participantesManual && nPres
       ? `${nPres} protagonistas — ${new Set(Object.values(asistencia)).size} patrullas` : f.participantes;
-    const data = { ...f, participantes, actividades: [...f.actividades].sort(porHora), puntajes: limpio, juegos, asistencia, inspeccion };
+    const data = { ...f, participantes, puntajes: limpio, juegos, asistencia, inspeccion };
     try {
       if (r) await updateDoc(ref('reuniones', r.id), data);
       else await addDoc(col('reuniones'), data);
@@ -212,7 +212,11 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
             ]}
             filas={f.actividades} onChange={(v) => set('actividades', v)}
             nueva={() => ({ id: nuevoId(), hora: '', actividad: '', tipo: '', materiales: '', encargado: f.encargado, montaje: '', dinamica: '', variante: '', reto: '' })}
-            agregar="Agregar actividad" />
+            agregar="Agregar actividad"
+            acciones={f.actividades.length > 1 && (
+              <button type="button" className="btn small quiet" onClick={() => set('actividades', [...f.actividades].sort(porHora))}>Ordenar por hora</button>
+            )} />
+          <p className="muted">Arrastrá el asa ⠿ de cada fila para cambiar el orden (en el celular, mantené el dedo sobre ella).</p>
         </>
       )}
 
