@@ -115,6 +115,11 @@ const SECCIONES = [
   ['resultados', 'Puntaje final'],
 ];
 
+const filasDeCronograma = (cr = []) => cr.filter((a) => a.actividad || a.fecha).map((a) => ({
+  fecha: a.fecha || '', actividad: a.actividad || '', objetivo: a.objetivo || '', responsable: a.responsable || '', eval: '', obs: '',
+}));
+const cicloAnterior = (ciclos, idActual, inicio) => ciclos
+  .filter((x) => x.id !== idActual && x.inicio < inicio).sort((a, b) => a.inicio.localeCompare(b.inicio)).pop();
 const mesAnio = (iso) => { const m = /^(\d{4})-(\d{2})/.exec(iso || ''); return m ? `${m[2]}/${m[1]}` : '—'; };
 const enRango = (fecha, ini, fin) => !!fecha && fecha >= (ini || '') && fecha <= (fin || hoyISO());
 const nombreDe = (p) => `${p.nombre || ''} ${p.apellidos || ''}`.trim();
@@ -152,12 +157,14 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
   const [f, setF] = useState(() => {
     const { id, ...d } = c || base || {};
+    const prev = cicloAnterior(ciclos, c?.id, d.inicio || hoyISO());
+    const precarga = !(d.evaluacion?.actividades?.length) && prev ? filasDeCronograma(prev.cronograma) : null;
     return {
       numero: String(ciclos.length + 1), anio: new Date().getFullYear(), nombre: '', inicio: hoyISO(), fin: '', fecha: hoyISO(),
       nombreSeccion: `Tropa ${grupo?.numero || ''}`.trim(), objetivoGeneral: '', objetivosEspecificos: '',
       traspasos: [], equipos: [], cronograma: [], progresion: {}, solicitudes: '', coordinadores: miembro?.nombre || '',
       ...d,
-      evaluacion: { actividades: [], logro: '', logroDetalle: '', logroEspecificos: '', gusto: '', noGusto: '', ...(d.evaluacion || {}) },
+      evaluacion: { actividades: [], logro: '', logroDetalle: '', logroEspecificos: '', gusto: '', noGusto: '', ...(d.evaluacion || {}), ...(precarga ? { actividades: precarga } : {}) },
       membresia: { nuevos: '', partidas: '', dirigentes: '', desercion: '', ...(d.membresia || {}) },
     };
   });
@@ -167,15 +174,21 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
   const setProg = (pid, cambios) => setF((x) => ({ ...x, progresion: { ...x.progresion, [pid]: { ...(x.progresion[pid] || {}), ...cambios } } }));
   const setArea = (pid, area, v) => setProg(pid, { areas: { ...(f.progresion[pid]?.areas || {}), [area]: v } });
 
-  const anterior = useMemo(() => {
-    const previos = ciclos.filter((x) => x.id !== c?.id && x.inicio < f.inicio).sort((a, b) => a.inicio.localeCompare(b.inicio));
-    return previos[previos.length - 1];
-  }, [ciclos, c, f.inicio]);
+  const anterior = useMemo(() => cicloAnterior(ciclos, c?.id, f.inicio), [ciclos, c, f.inicio]);
 
-  const traerCronogramaAnterior = () => {
+  // Vuelve a leer el cronograma del ciclo anterior sin perder lo ya evaluado
+  const recargarEvaluacion = () => {
     if (!anterior?.cronograma?.length) return alert('El ciclo anterior no tiene cronograma guardado.');
-    setEv('actividades', anterior.cronograma.map((a) => ({ ...a, eval: '', obs: '' })));
+    const previas = f.evaluacion.actividades;
+    const nuevas = filasDeCronograma(anterior.cronograma).map((r) => {
+      const ya = previas.find((x) => !x.manual && x.actividad === r.actividad && x.fecha === r.fecha);
+      return ya ? { ...r, eval: ya.eval, obs: ya.obs } : r;
+    });
+    setEv('actividades', [...nuevas, ...previas.filter((x) => x.manual)]);
   };
+  const setFilaEv = (i, k, v) => setF((x) => ({ ...x, evaluacion: { ...x.evaluacion, actividades: x.evaluacion.actividades.map((a, j) => (j === i ? { ...a, [k]: v } : a)) } }));
+  const conteoEv = ['3', '2', '1'].map((v) => f.evaluacion.actividades.filter((a) => a.eval === v).length);
+  const evaluadas = conteoEv[0] + conteoEv[1] + conteoEv[2];
   const cargarPatrullas = () => {
     const ya = new Set(f.equipos.map((e) => e.patrullaId).filter(Boolean));
     set('equipos', [...f.equipos, ...patrullas.filter((p) => !ya.has(p.id)).map((p) => ({ patrullaId: p.id, nombre: p.nombre, general: '', especificos: '' }))]);
@@ -316,21 +329,76 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
       {seccion === 'evaluacion' && (
         <>
-          <h3>Evaluación de actividades del ciclo anterior</h3>
-          <p className="muted">(*) 3 · Cumplido &nbsp; 2 · Parcialmente cumplido &nbsp; 1 · No se cumplió</p>
-          <div className="row" style={{ marginBottom: 8 }}>
-            <button type="button" className="btn small" onClick={traerCronogramaAnterior} disabled={!anterior}>
-              Traer cronograma {anterior ? `de «${etiquetaCiclo(anterior)}»` : 'del ciclo anterior'}
-            </button>
+          <h3>Evaluación de actividades</h3>
+          {anterior ? (
+            <p className="muted">
+              Se alimenta con el <strong>cronograma del ciclo anterior</strong> ({etiquetaCiclo(anterior)}). Solo evaluás cada actividad y anotás observaciones.
+            </p>
+          ) : (
+            <p className="alert media">No hay un ciclo anterior con cronograma. Podés agregar a mano las actividades que se programaron.</p>
+          )}
+          <div className="leyenda-eval" role="note">
+            <span className="v3">(*) 3 · Cumplido</span><span className="v2">2 · Parcialmente cumplido</span><span className="v1">1 · No se cumplió</span>
           </div>
-          <TablaEditable
-            columnas={[
-              { key: 'fecha', label: 'Fecha', tipo: 'date', min: 140 }, { key: 'actividad', label: 'Actividad', min: 200 },
-              { key: 'objetivo', label: 'Objetivo', min: 180 }, { key: 'responsable', label: 'Responsable', min: 130 },
-              { key: 'eval', label: 'Evaluación (*)', tipo: 'select', opciones: EVALUACION, min: 170 }, { key: 'obs', label: 'Observaciones / aspectos a mejorar', min: 220 },
-            ]}
-            filas={f.evaluacion.actividades} onChange={(v) => setEv('actividades', v)} agregar="Agregar actividad" />
-          <h3 style={{ marginTop: 16 }}>Diagnóstico</h3>
+          {f.evaluacion.actividades.length > 0 && (
+            <div className="table-wrap">
+              <table className="table editable evaltab">
+                <thead>
+                  <tr><th>Fecha</th><th>Actividad</th><th>Objetivo</th><th>Responsable</th><th>Evaluación (*)</th><th>Observaciones / aspectos a mejorar</th><th aria-label="Quitar" /></tr>
+                </thead>
+                <tbody>
+                  {f.evaluacion.actividades.map((a, i) => (
+                    <tr key={i}>
+                      {a.manual ? (
+                        <>
+                          <td data-label="Fecha"><input type="date" value={a.fecha || ''} onChange={(e) => setFilaEv(i, 'fecha', e.target.value)} /></td>
+                          <td data-label="Actividad"><input value={a.actividad || ''} onChange={(e) => setFilaEv(i, 'actividad', e.target.value)} /></td>
+                          <td data-label="Objetivo"><input value={a.objetivo || ''} onChange={(e) => setFilaEv(i, 'objetivo', e.target.value)} /></td>
+                          <td data-label="Responsable"><input value={a.responsable || ''} onChange={(e) => setFilaEv(i, 'responsable', e.target.value)} /></td>
+                        </>
+                      ) : (
+                        <>
+                          <td data-label="Fecha">{a.fecha ? formatoFecha(a.fecha) : '—'}</td>
+                          <td data-label="Actividad"><strong>{a.actividad}</strong></td>
+                          <td data-label="Objetivo">{a.objetivo || '—'}</td>
+                          <td data-label="Responsable">{a.responsable || '—'}</td>
+                        </>
+                      )}
+                      <td data-label="Evaluación (*)">
+                        <div className="evbtns" role="group" aria-label={`Evaluación de ${a.actividad}`}>
+                          {EVALUACION.map((o) => (
+                            <button key={o.v} type="button" title={o.l} aria-pressed={a.eval === o.v} className={`evbtn v${o.v}${a.eval === o.v ? ' on' : ''}`}
+                              onClick={() => setF((x) => ({ ...x, evaluacion: { ...x.evaluacion, actividades: x.evaluacion.actividades.map((r, j) => (j === i ? { ...r, eval: r.eval === o.v ? '' : o.v } : r)) } }))}>{o.v}</button>
+                          ))}
+                        </div>
+                      </td>
+                      <td data-label="Observaciones"><input value={a.obs || ''} onChange={(e) => setFilaEv(i, 'obs', e.target.value)} /></td>
+                      <td>{a.manual && <button type="button" className="btn small quiet" onClick={() => setEv('actividades', f.evaluacion.actividades.filter((_, j) => j !== i))}>✕ Quitar</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="row" style={{ marginTop: 6 }}>
+            <button type="button" className="btn small" onClick={() => setEv('actividades', [...f.evaluacion.actividades, { fecha: '', actividad: '', objetivo: '', responsable: '', eval: '', obs: '', manual: true }])}>+ Agregar actividad no programada</button>
+            {anterior && <button type="button" className="btn small quiet" onClick={recargarEvaluacion}>↻ Actualizar desde el cronograma anterior</button>}
+          </div>
+          {f.evaluacion.actividades.length > 0 && (
+            <p className="muted" style={{ marginTop: 8 }}>
+              Evaluadas {evaluadas} de {f.evaluacion.actividades.length} · Cumplidas {conteoEv[0]} · Parcialmente {conteoEv[1]} · No se cumplieron {conteoEv[2]}
+              {evaluadas > 0 && <> · <strong>Cumplimiento {Math.round(((conteoEv[0] + conteoEv[1] * 0.5) / evaluadas) * 100)} %</strong></>}
+            </p>
+          )}
+
+          <h3 style={{ marginTop: 18 }}>Diagnóstico del ciclo anterior</h3>
+          {anterior && (anterior.objetivoGeneral || anterior.objetivosEspecificos) && (
+            <div className="contexto-prev">
+              <strong>Lo que se propuso en {etiquetaCiclo(anterior)}</strong>
+              {anterior.objetivoGeneral && <p className="pre"><b>Objetivo general:</b> {anterior.objetivoGeneral}</p>}
+              {anterior.objetivosEspecificos && <p className="pre"><b>Objetivos específicos:</b> {anterior.objetivosEspecificos}</p>}
+            </div>
+          )}
           <div className="form">
             <label>1. Logro del objetivo propuesto en el ciclo anterior
               <select value={f.evaluacion.logro} onChange={(e) => setEv('logro', e.target.value)}>
