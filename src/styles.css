@@ -108,9 +108,9 @@ input[type=color] { padding: 2px; height: 38px; }
 .seg.multi button { flex: 1 1 auto; padding: .5rem .7rem; }
 .btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
 .btn.quiet:hover { color: var(--red); }
-.editable td input, .editable td select, .editable td textarea { min-width: 90px; }
+.editable td input:not([type=checkbox]), .editable td select, .editable td textarea { min-width: 90px; }
 .editable td.c, .editable th.c { text-align: center; }
-.editable td.c input { width: 20px; height: 20px; margin: 0; }
+.editable td.c input { width: 22px; height: 22px; margin: 0 auto; display: block; }
 .editable .totales td { background: var(--tropa-soft); }
 .pre { white-space: pre-wrap; }
 .sec-titulo { margin: .4rem 0 0; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--tropa-dark); border-bottom: 1px solid var(--line); padding-bottom: .25rem; }
@@ -342,3 +342,16 @@ body { overflow-x: hidden; }
 .terminado input { margin: 0; }
 
 .tag-ciclo { display: inline-block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--navy); color: #fff; border-radius: 999px; padding: .1rem .5rem; margin-right: .3rem; }
+
+/* Totales alineados con las casillas */
+.editable input[type=checkbox] { min-width: 0; min-height: 0; }
+.editable td.c, .editable th.c { text-align: center; vertical-align: middle; }
+.editable tr.totales td { font-size: 1.05rem; }
+
+/* Botones de acción destacados */
+.btn.agregar { display: inline-flex; align-items: center; gap: .5rem; background: var(--tropa-dark); border-color: var(--tropa-dark); color: #fff; font-weight: 700; padding: .55rem 1.1rem; min-height: 42px; border-radius: 10px; box-shadow: 0 2px 8px rgba(3,127,105,.35); }
+.btn.agregar:hover { background: #02675a; border-color: #02675a; }
+.btn.agregar .mas { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.25); font-size: 1rem; line-height: 1; }
+.btn.accion { background: var(--tropa-soft); border-color: var(--tropa); color: var(--tropa-dark); font-weight: 600; min-height: 40px; border-radius: 10px; }
+.btn.accion:hover { background: var(--tropa); border-color: var(--tropa); color: #fff; }
+.btn.agregar:focus-visible, .btn.accion:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }

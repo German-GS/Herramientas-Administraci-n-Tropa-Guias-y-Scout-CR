@@ -84,7 +84,7 @@ export default function TablaEditable({ columnas, filas, onChange, nueva = {}, a
         </div>
       )}
       <div className="row" style={{ marginTop: 6 }}>
-        <button type="button" className="btn small" onClick={() => onChange([...filas, typeof nueva === 'function' ? nueva() : { ...nueva }])}>+ {agregar}</button>
+        <button type="button" className="btn agregar" onClick={() => onChange([...filas, typeof nueva === 'function' ? nueva() : { ...nueva }])}><span className="mas" aria-hidden="true">＋</span> {agregar}</button>
         {acciones}
       </div>
     </div>

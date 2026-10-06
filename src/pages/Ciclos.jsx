@@ -435,8 +435,8 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
             </div>
           )}
           <div className="row" style={{ marginTop: 6 }}>
-            <button type="button" className="btn small" onClick={() => setEv('actividades', [...f.evaluacion.actividades, { fecha: '', actividad: '', objetivo: '', responsable: '', eval: '', obs: '', manual: true }])}>+ Agregar actividad no programada</button>
-            {anterior && <button type="button" className="btn small quiet" onClick={recargarEvaluacion}>↻ Actualizar desde el cronograma anterior</button>}
+            <button type="button" className="btn agregar" onClick={() => setEv('actividades', [...f.evaluacion.actividades, { fecha: '', actividad: '', objetivo: '', responsable: '', eval: '', obs: '', manual: true }])}><span className="mas" aria-hidden="true">＋</span> Agregar actividad no programada</button>
+            {anterior && <button type="button" className="btn accion" onClick={recargarEvaluacion}>↻ Actualizar desde el cronograma anterior</button>}
           </div>
           {f.evaluacion.actividades.length > 0 && (
             <p className="muted" style={{ marginTop: 8 }}>
@@ -512,7 +512,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
           <TablaEditable
             columnas={[{ key: 'nombre', label: 'Nombre', min: 160 }, { key: 'actividad', label: 'Actividad (traspaso o ceremonia)', min: 240 }, { key: 'observaciones', label: 'Observaciones', min: 200 }]}
             filas={f.traspasos} onChange={(v) => set('traspasos', v)} agregar="Agregar traspaso o ceremonia"
-            acciones={f.traspasos.length > 0 && <button type="button" className="btn small" onClick={traspasosAlCronograma}>Incluir en el cronograma →</button>} />
+            acciones={f.traspasos.length > 0 && <button type="button" className="btn accion" onClick={traspasosAlCronograma}>Incluir en el cronograma →</button>} />
           {mensaje && <p className="ok" role="status">{mensaje}</p>}
           <p className="muted">Estos traspasos y ceremonias deben tomarse en cuenta en el cronograma del siguiente ciclo.</p>
         </>
@@ -524,8 +524,8 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
           <p><strong>Ciclo número:</strong> {f.numero} &nbsp; <strong>Año:</strong> {f.anio} &nbsp; <strong>Período:</strong> {formatoFecha(f.inicio)} – {f.fin ? formatoFecha(f.fin) : '—'}</p>
           <h3 style={{ marginTop: 14 }}>Objetivos del equipo (patrulla)</h3>
           {patrullas.some((p) => !f.equipos.some((e) => e.patrullaId === p.id)) && (
-            <button type="button" className="btn small" onClick={cargarPatrullas} style={{ marginBottom: 8 }}>
-              {f.equipos.length ? 'Agregar las patrullas que faltan' : 'Cargar mis patrullas'}
+            <button type="button" className="btn agregar" onClick={cargarPatrullas} style={{ marginBottom: 8 }}>
+              <span className="mas" aria-hidden="true">＋</span> {f.equipos.length ? 'Agregar las patrullas que faltan' : 'Cargar mis patrullas'}
             </button>
           )}
           <TablaEditable
@@ -555,7 +555,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
             columnas={[{ key: 'fecha', label: 'Fecha', tipo: 'date', min: 140 }, { key: 'actividad', label: 'Actividad', min: 220 }, { key: 'objetivo', label: 'Objetivo', min: 220 }, { key: 'responsable', label: 'Responsable', min: 130 }]}
             filas={f.cronograma} onChange={(v) => set('cronograma', v)} agregar="Agregar actividad"
             acciones={f.cronograma.length > 1 && (
-              <button type="button" className="btn small quiet" onClick={() => set('cronograma', [...f.cronograma].sort((a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999')))}>Ordenar por fecha</button>
+              <button type="button" className="btn accion" onClick={() => set('cronograma', [...f.cronograma].sort((a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999')))}>Ordenar por fecha</button>
             )} />
           <p className="muted">{f.cronograma.length} {f.cronograma.length === 1 ? 'actividad' : 'actividades'}. Podés agregar, quitar y reordenar filas; si pasan de 30, el PDF oficial suma hojas adicionales.</p>
           <div className="form" style={{ marginTop: 12 }}>
@@ -627,7 +627,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
             </label>
           </div>
           <div className="row" style={{ margin: '8px 0' }}>
-            <button type="button" className="btn small" onClick={() => setF((x) => ({ ...x, membresia: { ...x.membresia, nuevos: '', partidas: '', dirigentes: '' } }))}>↺ Recalcular automático</button>
+            <button type="button" className="btn accion" onClick={() => setF((x) => ({ ...x, membresia: { ...x.membresia, nuevos: '', partidas: '', dirigentes: '' } }))}>↺ Recalcular automático</button>
           </div>
           <div className="form">
             <label className="full">¿Sabe por qué se dio la deserción? (indicar el motivo)
@@ -635,7 +635,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
             </label>
           </div>
           {salidas.some((p) => p.motivoSalida) && (
-            <button type="button" className="btn small" onClick={() => setMem('desercion', salidas.filter((p) => p.motivoSalida).map((p) => `${nombreDe(p)}: ${p.motivoSalida}`).join('\n'))}>
+            <button type="button" className="btn accion" onClick={() => setMem('desercion', salidas.filter((p) => p.motivoSalida).map((p) => `${nombreDe(p)}: ${p.motivoSalida}`).join('\n'))}>
               Usar los motivos registrados en los expedientes
             </button>
           )}

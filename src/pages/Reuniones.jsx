@@ -273,7 +273,7 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
             nueva={() => ({ id: nuevoId(), hora: '', actividad: '', tipo: '', materiales: '', encargado: f.encargado, montaje: '', dinamica: '', variante: '', reto: '' })}
             agregar="Agregar actividad"
             acciones={f.actividades.length > 1 && (
-              <button type="button" className="btn small quiet" onClick={() => set('actividades', [...f.actividades].sort(porHora))}>Ordenar por hora</button>
+              <button type="button" className="btn accion" onClick={() => set('actividades', [...f.actividades].sort(porHora))}>Ordenar por hora</button>
             )} />
           <p className="muted">Arrastrá el asa ⠿ de cada fila para cambiar el orden (en el celular, mantené el dedo sobre ella).</p>
         </>
@@ -348,7 +348,7 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
                   {miembros.length === 0 ? <p className="empty">Esta patrulla no tiene protagonistas asignados.</p> : (
                     <>
                       <div className="row between" style={{ marginBottom: 6 }}>
-                        <button type="button" className="btn small" onClick={() => todosPresentes(p.id, miembros)}>Todos presentes</button>
+                        <button type="button" className="btn accion" onClick={() => todosPresentes(p.id, miembros)}>Todos presentes</button>
                         <span className="muted">Asistencia {d.asistencia} pts · Inspección {d.inspeccion} pts</span>
                       </div>
                       <div className="table-wrap">
