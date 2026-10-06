@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useAcceso } from './lib/useAcceso';
+import { activarBio, bioActivada, bioDisponible, quitarBio, verificarBio } from './lib/biometria';
 import { GrupoProvider } from './lib/grupo.jsx';
 import Login from './Login.jsx';
 import Onboarding from './Onboarding.jsx';
@@ -52,6 +53,22 @@ function Aviso({ titulo, children }) {
   );
 }
 
+function Bloqueo({ bio, onLibre }) {
+  const [error, setError] = useState('');
+  const abrir = async () => {
+    setError('');
+    try { await verificarBio(bio); onLibre(); }
+    catch { setError('No se pudo verificar. Intentá de nuevo o usá tu contraseña.'); }
+  };
+  return (
+    <Aviso titulo="Sesión bloqueada">
+      <p className="muted">Verificá tu identidad para entrar.</p>
+      <button className="btn primary block" onClick={abrir}>Desbloquear con huella / Face ID</button>
+      {error && <p className="error" role="alert">{error}</p>}
+    </Aviso>
+  );
+}
+
 function Icono({ k }) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -59,11 +76,21 @@ function Icono({ k }) {
   );
 }
 
-function Panel({ user, acceso }) {
+function Panel({ user, acceso, onBloquear }) {
   const [tab, setTab] = useState('inicio');
   const [menu, setMenu] = useState(false);
   const [abrirExpediente, setAbrirExpediente] = useState(null);
+  const [bio, setBio] = useState(() => !!bioActivada(user.uid));
+  const [bioOk, setBioOk] = useState(false);
+  const [bioMsg, setBioMsg] = useState('');
+  useEffect(() => { bioDisponible().then(setBioOk); }, []);
   const esJefe = acceso.miembro.rol === 'jefe';
+  const activar = async () => {
+    setBioMsg('');
+    try { await activarBio(user); setBio(true); setBioMsg('Listo: la próxima vez desbloqueás con huella o Face ID.'); }
+    catch { setBioMsg('No se pudo activar. Revisá que el dispositivo tenga huella o Face ID configurado.'); }
+  };
+  const desactivar = () => { quitarBio(); setBio(false); setBioMsg(''); };
   const tabs = TABS.filter((t) => !t.soloJefe || esJefe);
   const actual = tabs.find((t) => t.key === tab) || tabs[0];
   const Actual = actual.comp;
@@ -101,10 +128,23 @@ function Panel({ user, acceso }) {
           <div className="usuario">
             <div className="quien">
               <strong>{acceso.miembro.nombre || user.email}</strong>
-              <small>{esJefe ? 'Jefe de Grupo' : 'Dirigente'}</small>
+              <small>{acceso.miembro.cargo || (esJefe ? 'Administrador' : 'Dirigente')}</small>
             </div>
             <button className="btn small ghost" onClick={() => signOut(auth)}>Salir</button>
           </div>
+          {(bioOk || bio) && (
+            <div className="bio">
+              {bio ? (
+                <>
+                  <button className="btn small ghost" onClick={onBloquear}>🔒 Bloquear</button>
+                  <button className="link claro" onClick={desactivar}>Quitar huella / Face ID</button>
+                </>
+              ) : (
+                <button className="btn small ghost" onClick={activar}>Activar huella / Face ID</button>
+              )}
+              {bioMsg && <small>{bioMsg}</small>}
+            </div>
+          )}
         </aside>
         <main className="content">
           <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
@@ -119,12 +159,16 @@ export default function App() {
   const [user, setUser] = useState(undefined);
   const [, refrescar] = useState(0);
   const [aviso, setAviso] = useState('');
+  const [libre, setLibre] = useState(false); // false tras recargar: si hay huella activada, se pide
   const acceso = useAcceso(user);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
   if (user === undefined) return <div className="center">Cargando…</div>;
-  if (!user) return <Login />;
+  if (!user) return <Login onEntrar={() => setLibre(true)} />;
+
+  const bio = bioActivada(user.uid);
+  if (bio && !libre) return <Bloqueo bio={bio} onLibre={() => setLibre(true)} />;
 
   if (!user.emailVerified) {
     const yaVerifique = async () => {
@@ -165,5 +209,5 @@ export default function App() {
     );
   }
 
-  return <Panel user={user} acceso={acceso} />;
+  return <Panel user={user} acceso={acceso} onBloquear={() => setLibre(false)} />;
 }

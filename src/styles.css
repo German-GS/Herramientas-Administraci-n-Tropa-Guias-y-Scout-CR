@@ -155,3 +155,11 @@ input[type=color] { padding: 2px; height: 38px; }
   .login-card { padding: 1.5rem 1.2rem; }
 }
 @media (prefers-reduced-motion: reduce) { .sidebar, .scrim { transition: none; } }
+
+.btn.google { display: flex; align-items: center; justify-content: center; gap: .6rem; font-weight: 600; }
+.o { display: flex; align-items: center; gap: .6rem; color: var(--muted); font-size: .8rem; margin: .9rem 0; }
+.o::before, .o::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.link.inline { margin: 0; }
+.bio { padding: 0 1rem .9rem; display: flex; flex-direction: column; gap: .4rem; align-items: flex-start; }
+.bio small { color: #b9b2d6; font-size: .75rem; }
+.link.claro { color: #b9b2d6; margin: 0; font-size: .78rem; }
