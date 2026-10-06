@@ -9,7 +9,7 @@ const VACIO = {
   nombre: '', apellidos: '', fechaNacimiento: '', patrullaId: '', cargo: 'Integrante',
   etapa: ETAPAS[0], fechaIngreso: hoyISO(), fechaInicioEtapa: hoyISO(),
   encargado: { nombre: '', telefono: '', parentesco: '' },
-  medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '', seguro: '' },
+  medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '' },
   cedula: '', correo: '', etapaConfirmada: true, recordatorios: [], brujulas: {}, notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
 };
 
@@ -246,7 +246,6 @@ function Expediente({ p, patrullas, config, onCerrar }) {
               {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'Desconocido'].map((t) => <option key={t}>{t}</option>)}
             </select>
           </label>
-          <label>Seguro / póliza<input value={f.medico.seguro} onChange={(x) => setSub('medico', 'seguro', x.target.value)} /></label>
           <label className="full">Alergias
             <input value={f.medico.alergias} disabled={f.medico.sinAlergias} onChange={(x) => setSub('medico', 'alergias', x.target.value)} />
             <span className="muted"><input type="checkbox" checked={f.medico.sinAlergias} onChange={(x) => setSub('medico', 'sinAlergias', x.target.checked)} /> No tiene alergias conocidas</span>

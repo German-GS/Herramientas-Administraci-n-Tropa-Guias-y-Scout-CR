@@ -14,7 +14,7 @@ const expedienteDesdeInforme = (m, origen) => ({
   nombre: m.nombre, apellidos: m.apellidos, fechaNacimiento: m.fechaNacimiento, cedula: m.cedula, correo: m.correo,
   patrullaId: '', cargo: 'Integrante', etapa: ETAPAS[0], etapaConfirmada: false, fechaIngreso: '', fechaInicioEtapa: '',
   encargado: { nombre: '', telefono: '', parentesco: '' },
-  medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '', seguro: '' },
+  medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '' },
   notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
   cargoAsociacion: m.cargoAsociacion, origen,
 });
