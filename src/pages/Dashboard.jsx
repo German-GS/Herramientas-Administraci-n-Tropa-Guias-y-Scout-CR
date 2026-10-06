@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
-import { alertasDe, formatoFecha, hoyISO, totalReunionPatrulla } from '../lib/etapas';
+import { alertasDe, etiquetaCiclo, formatoFecha, hoyISO, totalReunionPatrulla } from '../lib/etapas';
 
 const ORDEN_NIVEL = { alta: 0, media: 1, info: 2 };
 
@@ -50,7 +50,7 @@ export default function Dashboard({ irAExpediente }) {
 
       <div className="grid two">
         <div className="card">
-          <h2>Puntaje {cicloActual ? `— ${cicloActual.nombre}` : ''}</h2>
+          <h2>Puntaje {cicloActual ? `— ${etiquetaCiclo(cicloActual)}` : ''}</h2>
           {!cicloActual && <p className="empty">Creá un ciclo en «Puntaje final» para empezar a sumar.</p>}
           {ranking.map((r, i) => (
             <div className="rank" key={r.id}>

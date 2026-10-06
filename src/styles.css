@@ -104,6 +104,15 @@ input[type=color] { padding: 2px; height: 38px; }
 .codigo { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.7rem; letter-spacing: .25em; font-weight: 800; color: var(--navy);
   background: var(--tropa-soft); border: 2px dashed var(--tropa); border-radius: 10px; padding: .6rem; text-align: center; user-select: all; }
 
+.seg.multi { display: flex; flex-wrap: wrap; gap: 2px; margin: .6rem 0 1rem; }
+.seg.multi button { flex: 1 1 auto; padding: .5rem .7rem; }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.quiet:hover { color: var(--red); }
+.editable td input, .editable td select, .editable td textarea { min-width: 90px; }
+.editable td.c, .editable th.c { text-align: center; }
+.editable td.c input { width: 20px; height: 20px; margin: 0; }
+.editable .totales td { background: var(--tropa-soft); }
+.pre { white-space: pre-wrap; }
 .sec-titulo { margin: .4rem 0 0; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--tropa-dark); border-bottom: 1px solid var(--line); padding-bottom: .25rem; }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 @media (max-width: 460px) { .dos { grid-template-columns: 1fr; } }
@@ -163,3 +172,37 @@ input[type=color] { padding: 2px; height: 38px; }
 .bio { padding: 0 1rem .9rem; display: flex; flex-direction: column; gap: .4rem; align-items: flex-start; }
 .bio small { color: #b9b2d6; font-size: .75rem; }
 .link.claro { color: #b9b2d6; margin: 0; font-size: .78rem; }
+
+@media (max-width: 860px) {
+  .editable thead { display: none; }
+  .editable tr { display: block; border: 1px solid var(--line); border-radius: 10px; padding: .5rem .6rem; margin-bottom: .6rem; background: #fff; }
+  .editable td { display: block; border: 0; padding: .25rem 0; }
+  .editable td::before { content: attr(data-label); display: block; font-size: .72rem; color: var(--muted); }
+  .editable td.c { text-align: left; display: flex; align-items: center; gap: .5rem; }
+  .editable td.c::before { display: inline; }
+  .editable td.c input { order: -1; }
+}
+
+/* Documentos (programa de reunión / ciclo): vista en pantalla e impresión */
+.doc { font-family: Georgia, "Times New Roman", serif; color: #111; line-height: 1.45; max-width: 820px; margin: 1rem auto 0; }
+.doc h1 { text-align: center; font-size: 1.4rem; color: var(--navy); margin: .4rem 0 1rem; }
+.doc h2 { font-size: 1.1rem; color: var(--tropa-dark); border-bottom: 2px solid var(--tropa); padding-bottom: 2px; margin: 1.3rem 0 .5rem; }
+.doc h3 { font-size: 1rem; margin: .9rem 0 .2rem; color: var(--navy); }
+.doc p { margin: .25rem 0; }
+.doc-tabla { width: 100%; border-collapse: collapse; margin: .6rem 0; font-family: "Segoe UI", Arial, sans-serif; font-size: .85rem; }
+.doc-tabla th { background: var(--navy); color: #fff; text-transform: none; font-size: .8rem; letter-spacing: 0; border: 1px solid var(--navy); }
+.doc-tabla td { border: 1px solid #bbb; vertical-align: top; }
+.doc-tabla.chica { font-size: .72rem; } .doc-tabla.chica td.c { text-align: center; }
+.doc-act { break-inside: avoid; }
+.muted-print { font-size: .8rem; color: #555; }
+.firma { margin-top: 1.6rem; } .firma span { display: inline-block; border-bottom: 1px solid #000; width: 240px; margin-left: .5rem; }
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff; }
+  .shell { display: block; }
+  .no-print { display: none !important; }
+  .card { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+  .doc { max-width: none; margin: 0; }
+  .doc-tabla th { background: #e6e3f1 !important; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .doc-anexo { break-before: page; }
+}

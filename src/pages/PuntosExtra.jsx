@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { addDoc, deleteDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
-import { formatoFecha, hoyISO } from '../lib/etapas';
+import { etiquetaCiclo, formatoFecha, hoyISO } from '../lib/etapas';
 
 export default function PuntosExtra() {
   const { col, ref } = useGrupo();
@@ -43,7 +43,7 @@ export default function PuntosExtra() {
           <label>Ciclo
             <select value={f.cicloId} onChange={(e) => setF({ ...f, cicloId: e.target.value })}>
               <option value="">Automático según fecha</option>
-              {ciclos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {ciclos.map((c) => <option key={c.id} value={c.id}>{etiquetaCiclo(c)}</option>)}
             </select>
           </label>
           <label className="full">Motivo<input value={f.motivo} placeholder="Ej.: buena acción, campamento limpio, llegó tarde…"

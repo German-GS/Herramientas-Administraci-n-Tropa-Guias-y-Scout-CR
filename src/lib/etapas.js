@@ -131,3 +131,36 @@ export function totalReunionPatrulla(reunion, patrullaId) {
   if (!p) return 0;
   return CATEGORIAS.reduce((s, c) => s + (Number(p[c.key]) || 0), 0);
 }
+
+// Áreas de crecimiento del método (Ciclo de Programa)
+export const AREAS = [
+  { key: 'corporalidad', label: 'Corporalidad' },
+  { key: 'creatividad', label: 'Creatividad' },
+  { key: 'caracter', label: 'Carácter' },
+  { key: 'afectividad', label: 'Afectividad' },
+  { key: 'sociabilidad', label: 'Sociabilidad' },
+  { key: 'espiritualidad', label: 'Espiritualidad' },
+  { key: 'servicio', label: 'Servicio' },
+];
+
+export const EVALUACION = [
+  { v: '3', l: '3 · Cumplido' },
+  { v: '2', l: '2 · Parcialmente cumplido' },
+  { v: '1', l: '1 · No cumplido' },
+];
+
+export const etiquetaCiclo = (c) => (c ? `Ciclo ${c.numero || ''}${c.nombre ? ` — ${c.nombre}` : ''}`.replace('Ciclo  ', 'Ciclo ').trim() : '');
+
+export function fechaLarga(str) {
+  const d = parseFecha(str);
+  if (!d) return '';
+  const t = d.toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+export function horaCorta(h) {
+  if (!h) return '';
+  const [H, M] = h.split(':').map(Number);
+  if (Number.isNaN(H)) return h;
+  return `${((H + 11) % 12) + 1}:${String(M || 0).padStart(2, '0')} ${H < 12 ? 'a.m.' : 'p.m.'}`;
+}

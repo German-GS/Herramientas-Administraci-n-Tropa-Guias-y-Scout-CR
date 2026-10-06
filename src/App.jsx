@@ -30,7 +30,7 @@ const TABS = [
   { key: 'inicio', label: 'Inicio', comp: Dashboard },
   { key: 'reuniones', label: 'Reuniones', comp: Reuniones },
   { key: 'puntos', label: 'Puntos extra', comp: PuntosExtra },
-  { key: 'ciclos', label: 'Puntaje final', comp: Ciclos },
+  { key: 'ciclos', label: 'Ciclos', comp: Ciclos },
   { key: 'protagonistas', label: 'Expedientes', comp: Protagonistas },
   { key: 'patrullas', label: 'Patrullas', comp: Patrullas },
   { key: 'dirigentes', label: 'Dirigentes', comp: Dirigentes, soloJefe: true },
