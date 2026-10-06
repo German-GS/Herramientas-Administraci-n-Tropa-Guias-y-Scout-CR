@@ -5,6 +5,7 @@ import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
 import { AREAS, CATEGORIAS, CRITERIOS, desglosePatrulla, edad, ETAPAS, etiquetaCiclo, EVALUACION, formatoFecha, hoyISO } from '../lib/etapas';
 import TablaEditable from '../components/TablaEditable.jsx';
+import IconoOjo from '../components/IconoOjo.jsx';
 import CicloDocumento, { filasProgresion, totalesAreas } from '../components/CicloDocumento.jsx';
 
 export default function Ciclos() {
@@ -13,10 +14,12 @@ export default function Ciclos() {
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
   const { docs: extras } = useCollection('puntosExtra', 'fecha');
   const [sel, setSel] = useState(null);
+  const [vistaDirecta, setVistaDirecta] = useState(false);
 
   if (sel) {
     const c = sel === 'nuevo' ? null : ciclos.find((x) => x.id === sel);
-    return <EditorCiclo key={sel} c={c} ciclos={ciclos} reuniones={reuniones} extras={extras} onCerrar={() => setSel(null)} />;
+    return <EditorCiclo key={sel + (vistaDirecta ? 'v' : '')} c={c} ciclos={ciclos} reuniones={reuniones} extras={extras} vistaInicial={vistaDirecta}
+      onCerrar={() => { setSel(null); setVistaDirecta(false); }} />;
   }
 
   const borrar = async (c) => {
@@ -42,6 +45,7 @@ export default function Ciclos() {
               <div className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</div>
             </div>
             <div className="row">
+              <button className="btn small icono" title="Ver el documento" aria-label="Ver el documento" onClick={() => { setVistaDirecta(true); setSel(c.id); }}><IconoOjo /></button>
               <button className="btn small" onClick={() => setSel(c.id)}>Abrir</button>
               <button className="btn small danger" onClick={() => borrar(c)}>Borrar</button>
             </div>
@@ -61,13 +65,13 @@ const SECCIONES = [
   ['resultados', 'Puntaje final'],
 ];
 
-function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
+function EditorCiclo({ c, ciclos, reuniones, extras, vistaInicial = false, onCerrar }) {
   const { col, ref, grupo, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: protagonistas } = useCollection('protagonistas');
   const [seccion, setSeccion] = useState('datos');
-  const [vista, setVista] = useState(false);
+  const [vista, setVista] = useState(vistaInicial);
   const [guardando, setGuardando] = useState(false);
 
   const [f, setF] = useState(() => {
@@ -133,7 +137,10 @@ function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
     return (
       <div className="card">
         <div className="row between no-print">
-          <button className="btn" onClick={() => setVista(false)}>← Seguir editando</button>
+          <div className="row">
+            <button className="btn" onClick={onCerrar}>← Ciclos</button>
+            <button className="btn" onClick={() => setVista(false)}>Editar</button>
+          </div>
           <button className="btn primary" onClick={() => window.print()}>Imprimir / guardar PDF</button>
         </div>
         <CicloDocumento c={f} protagonistas={protagonistas} patrullas={patrullas} grupo={grupo} />
@@ -287,16 +294,18 @@ function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
         <>
           <p className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</p>
           <div className="table-wrap">
-            <table className="table">
+            <table className="table cards-movil">
               <thead><tr><th>#</th><th>Patrulla</th>{CRITERIOS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Lugares</th><th>Asistencia</th><th>Inspección</th>{CATEGORIAS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Extra</th><th>Total</th></tr></thead>
               <tbody>
                 {tabla.map((p, i) => (
                   <tr key={p.id}>
-                    <td>{i === 0 && p.total > 0 ? '🏆' : i + 1}</td>
-                    <td><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
-                    {CRITERIOS.map((k) => <td key={k.key}>{p.crit[k.key]}</td>)}<td>{p.lugar}</td><td>{p.asistencia}</td><td>{p.inspeccion}</td>{CATEGORIAS.map((k) => <td key={k.key}>{p.general[k.key]}</td>)}
-                    <td className={p.extra >= 0 ? 'pos-num' : 'neg-num'}>{p.extra > 0 ? '+' : ''}{p.extra}</td>
-                    <td><strong>{p.total}</strong></td>
+                    <td className="oculto-movil">{i === 0 && p.total > 0 ? '🏆' : i + 1}</td>
+                    <td className="titulo" data-label="Patrulla">{i === 0 && p.total > 0 ? '🏆 ' : `${i + 1}. `}<span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
+                    {CRITERIOS.map((k) => <td key={k.key} data-label={k.label}>{p.crit[k.key]}</td>)}
+                    <td data-label="Lugares">{p.lugar}</td><td data-label="Asistencia">{p.asistencia}</td><td data-label="Inspección">{p.inspeccion}</td>
+                    {CATEGORIAS.map((k) => <td key={k.key} data-label={k.label}>{p.general[k.key]}</td>)}
+                    <td data-label="Extra" className={p.extra >= 0 ? 'pos-num' : 'neg-num'}>{p.extra > 0 ? '+' : ''}{p.extra}</td>
+                    <td data-label="Total"><strong className="pts-grande">{p.total}</strong></td>
                   </tr>
                 ))}
               </tbody>

@@ -14,6 +14,7 @@ const FILAS_BASE = () => [
 ].map((a) => ({ ...a, id: nuevoId(), montaje: '', dinamica: '', variante: '', reto: '' }));
 const porHora = (a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99');
 import TablaEditable from '../components/TablaEditable.jsx';
+import IconoOjo from '../components/IconoOjo.jsx';
 import { importarMachote } from '../lib/importarMachote';
 import ProgramaReunion from '../components/ProgramaReunion.jsx';
 
@@ -28,6 +29,7 @@ export default function Reuniones() {
   const [sel, setSel] = useState(null);
   const [copia, setCopia] = useState(null);
   const [avisos, setAvisos] = useState(null);
+  const [vistaDirecta, setVistaDirecta] = useState(false);
   const [importando, setImportando] = useState(false);
   const [errorImp, setErrorImp] = useState('');
   const [config] = useConfig();
@@ -51,8 +53,8 @@ export default function Reuniones() {
 
   if (sel) {
     const r = sel === 'nueva' ? null : reuniones.find((x) => x.id === sel);
-    return <EditorReunion key={sel + (copia ? 'c' : '')} r={r} base={copia} patrullas={patrullas} ciclos={ciclos}
-      avisos={avisos} onCerrar={() => { setSel(null); setCopia(null); setAvisos(null); }} />;
+    return <EditorReunion key={sel + (copia ? 'c' : '') + (vistaDirecta ? 'v' : '')} r={r} base={copia} patrullas={patrullas} ciclos={ciclos}
+      avisos={avisos} vistaInicial={vistaDirecta} onCerrar={() => { setSel(null); setCopia(null); setAvisos(null); setVistaDirecta(false); }} />;
   }
 
   const duplicar = (r) => {
@@ -92,16 +94,19 @@ export default function Reuniones() {
       </div>
       {lista.length === 0 ? <p className="empty">Todavía no hay reuniones. Creá el programa de la próxima.</p> : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table cards-movil">
             <thead><tr><th>Fecha</th><th>Fondo motivador / objetivo</th><th>Ciclo</th>{patrullas.map((p) => <th key={p.id}>{p.nombre}</th>)}<th /></tr></thead>
             <tbody>
               {lista.map((r) => (
                 <tr key={r.id} className="clickable" onClick={() => setSel(r.id)}>
-                  <td>{formatoFecha(r.fecha)}</td>
-                  <td>{r.fondo || r.tema || r.objetivo || '—'}</td>
-                  <td>{etiquetaCiclo(ciclos.find((c) => c.id === r.cicloId)) || <span className="muted">sin ciclo</span>}</td>
-                  {patrullas.map((p) => <td key={p.id}><strong>{totalReunionPatrulla(r, p.id, config)}</strong></td>)}
-                  <td><button className="btn small quiet" onClick={(e) => { e.stopPropagation(); duplicar(r); }}>Duplicar</button></td>
+                  <td className="titulo" data-label="Fecha"><strong>{formatoFecha(r.fecha)}</strong></td>
+                  <td className="completo" data-label="Fondo motivador"><span className="clamp">{r.fondo || r.tema || r.objetivo || '—'}</span></td>
+                  <td className="completo" data-label="Ciclo">{etiquetaCiclo(ciclos.find((c) => c.id === r.cicloId)) || <span className="muted">sin ciclo</span>}</td>
+                  {patrullas.map((p) => <td key={p.id} data-label={p.nombre}><strong>{totalReunionPatrulla(r, p.id, config)}</strong></td>)}
+                  <td className="acciones">
+                    <button className="btn small icono" title="Ver el programa" aria-label="Ver el programa" onClick={(e) => { e.stopPropagation(); setVistaDirecta(true); setSel(r.id); }}><IconoOjo /></button>
+                    <button className="btn small quiet" onClick={(e) => { e.stopPropagation(); duplicar(r); }}>Duplicar</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -121,13 +126,13 @@ const SECCIONES = [
   ['puntajes', 'Puntajes'],
 ];
 
-function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
+function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclos, onCerrar }) {
   const { col, ref, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
   const max = Number(config.puntajeMaxCategoria) || 10;
   const [seccion, setSeccion] = useState('programa');
-  const [vista, setVista] = useState(false);
+  const [vista, setVista] = useState(vistaInicial);
   const [guardando, setGuardando] = useState(false);
 
   const [f, setF] = useState(() => {
@@ -207,7 +212,10 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
     return (
       <div className="card">
         <div className="row between no-print">
-          <button className="btn" onClick={() => setVista(false)}>← Seguir editando</button>
+          <div className="row">
+            <button className="btn" onClick={onCerrar}>← Reuniones</button>
+            <button className="btn" onClick={() => setVista(false)}>Editar</button>
+          </div>
           <button className="btn primary" onClick={() => window.print()}>Imprimir / guardar PDF</button>
         </div>
         <ProgramaReunion r={f} />
@@ -396,7 +404,7 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
               <fieldset key={a.id} style={{ marginBottom: 12 }}>
                 <legend>{a.hora ? `${a.hora} · ` : ''}{a.actividad || 'Juego activo'}</legend>
                 <div className="table-wrap">
-                  <table className="table">
+                  <table className="table cards-movil">
                     <thead>
                       <tr>
                         <th>Patrulla</th>
@@ -411,20 +419,20 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
                         const pts = CRITERIOS.reduce((t, c) => t + (Number(j[c.key]) || 0), 0) + (j.lugar ? porLugar[Number(j.lugar) - 1] || 0 : 0);
                         return (
                           <tr key={p.id}>
-                            <td><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
+                            <td className="titulo" data-label="Patrulla"><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
                             {CRITERIOS.map((c) => (
-                              <td key={c.key}>
-                                <input type="number" min={1} max={max} style={{ width: 64 }} aria-label={`${c.label} de ${p.nombre}`}
+                              <td key={c.key} data-label={`${c.label} (1–${max})`}>
+                                <input type="number" min={1} max={max} inputMode="numeric" style={{ width: 64 }} aria-label={`${c.label} de ${p.nombre}`}
                                   value={j[c.key] ?? ''} onChange={(e) => setJuego(a.id, p.id, c.key, e.target.value)} />
                               </td>
                             ))}
-                            <td>
+                            <td data-label="Lugar">
                               <select value={j.lugar || ''} onChange={(e) => setJuego(a.id, p.id, 'lugar', e.target.value)} aria-label={`Lugar de ${p.nombre}`}>
                                 <option value="">—</option>
                                 {patrullas.map((_, n) => <option key={n} value={n + 1}>{n + 1}.º ({porLugar[n] ?? 0} pts)</option>)}
                               </select>
                             </td>
-                            <td><strong>{pts}</strong></td>
+                            <td data-label="Total del juego"><strong className="pts-grande">{pts}</strong></td>
                           </tr>
                         );
                       })}
@@ -439,28 +447,23 @@ function EditorReunion({ r, base, avisos, patrullas, ciclos, onCerrar }) {
             </p>
 
             <fieldset style={{ marginTop: 12 }}>
-              <legend>Comportamiento (0–{max})</legend>
-              <div className="table-wrap">
-                <table className="table">
-                  <thead><tr><th>Categoría</th>{patrullas.map((p) => <th key={p.id}><span className="dot" style={{ background: p.color }} /> {p.nombre}</th>)}</tr></thead>
-                  <tbody>
+              <legend>Puntaje general de la reunión</legend>
+              <div className="tarjetas-patrulla">
+                {patrullas.map((p) => (
+                  <div key={p.id} className="tarjeta-patrulla" style={{ borderTopColor: p.color }}>
+                    <strong><span className="dot" style={{ background: p.color }} /> {p.nombre}</strong>
                     {CATEGORIAS.map((c) => (
-                      <tr key={c.key}>
-                        <td>{c.label}</td>
-                        {patrullas.map((p) => (
-                          <td key={p.id}>
-                            <input type="number" min={0} max={max} style={{ width: 70 }}
-                              value={f.puntajes[p.id]?.[c.key] ?? ''} onChange={(e) => setPunto(p.id, c.key, e.target.value)} />
-                          </td>
-                        ))}
-                      </tr>
+                      <label key={c.key}>{c.label} (0–{max})
+                        <input type="number" min={0} max={max} inputMode="numeric"
+                          value={f.puntajes[p.id]?.[c.key] ?? ''} onChange={(e) => setPunto(p.id, c.key, e.target.value)} />
+                      </label>
                     ))}
-                    <tr>
-                      <td><strong>Total de la reunión</strong></td>
-                      {patrullas.map((p) => <td key={p.id}><strong>{desglosePatrulla(f, p.id, config).total}</strong></td>)}
-                    </tr>
-                  </tbody>
-                </table>
+                    <div className="resumen-patrulla">
+                      <span>Asistencia {desglosePatrulla(f, p.id, config).asistencia} · Inspección {desglosePatrulla(f, p.id, config).inspeccion}</span>
+                      <span className="total">Total de la reunión <strong>{desglosePatrulla(f, p.id, config).total}</strong></span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </fieldset>
           </>
