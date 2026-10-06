@@ -3,7 +3,7 @@ import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
-import { AREAS, CATEGORIAS, CRITERIOS, desglosePatrulla, edad, ETAPAS, etiquetaCiclo, EVALUACION, formatoFecha, hoyISO } from '../lib/etapas';
+import { AREAS, BRUJULAS, brujulaActual, CATEGORIAS, CRITERIOS, desglosePatrulla, edad, ETAPAS, etiquetaCiclo, EVALUACION, formatoFecha, hoyISO } from '../lib/etapas';
 import TablaEditable from '../components/TablaEditable.jsx';
 import IconoOjo from '../components/IconoOjo.jsx';
 import CicloDocumento, { filasProgresion, totalesAreas } from '../components/CicloDocumento.jsx';
@@ -573,7 +573,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
               <div className="table-wrap">
                 <table className="table editable prog">
                   <thead>
-                    <tr><th>#</th><th>Nombre</th><th>Fecha de ingreso (mes/año)</th><th>Edad</th><th>Etapa actual</th><th>Etapa en el ciclo</th>
+                    <tr><th>#</th><th>Nombre</th><th>Fecha de ingreso (mes/año)</th><th>Edad</th><th>Etapa actual</th><th>Etapa en el ciclo</th><th>Brújula</th>
                       {AREAS.map((a) => <th key={a.key} className="c">{a.label}</th>)}<th>Servicio</th><th>Actividades propuestas</th><th>Otras</th></tr>
                   </thead>
                   <tbody>
@@ -587,6 +587,11 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
                           <td data-label="Edad">{edad(p.fechaNacimiento) ?? '—'}</td>
                           <td data-label="Etapa actual">{p.etapa}</td>
                           <td data-label="Etapa en el ciclo">{selectEtapa(p, pr)}</td>
+                          <td data-label="Brújula">{(() => {
+                            const b = brujulaActual(p); const lista = BRUJULAS.find((x) => p.brujulas?.[x.key]?.estado === 'lista');
+                            if (!b && !lista) return <span className="muted">—</span>;
+                            return <>{b && <span className="brujula-chip"><span className="brujula-punto" style={{ background: b.color }} />{b.corto}</span>}{lista && <span className="muted"> · {lista.corto} por entregar</span>}</>;
+                          })()}</td>
                           {celdasAreas(p, pr)}
                           <td data-label="Servicio"><input value={pr.servicio || ''} onChange={(e) => setProg(p.id, { servicio: e.target.value })} /></td>
                           <td data-label="Actividades propuestas"><input value={pr.actividades || ''} onChange={(e) => setProg(p.id, { actividades: e.target.value })} /></td>
@@ -594,7 +599,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
                         </tr>
                       );
                     })}
-                    {totalesFila(6, 3)}
+                    {totalesFila(7, 3)}
                   </tbody>
                 </table>
               </div>

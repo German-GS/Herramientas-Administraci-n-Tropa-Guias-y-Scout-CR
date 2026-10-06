@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
@@ -35,7 +36,7 @@ function Barras({ datos, valor }) {
 }
 
 export default function Dashboard({ irAExpediente, irAlCiclo }) {
-  const { gid } = useGrupo();
+  const { gid, ref } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
@@ -45,6 +46,18 @@ export default function Dashboard({ irAExpediente, irAlCiclo }) {
   const [alcance, setAlcance] = useState('ciclo'); // ciclo | ultima
 
   const activos = protagonistas.filter((p) => p.activo !== false);
+
+  // Acciones rápidas desde los recordatorios del Inicio
+  const marcarHecho = async (a) => {
+    const p = protagonistas.find((x) => x.id === a.id);
+    if (!p) return;
+    await updateDoc(ref('protagonistas', p.id), { recordatorios: (p.recordatorios || []).map((r) => (r.id === a.rid ? { ...r, hecho: true, fechaHecho: hoyISO() } : r)) });
+  };
+  const entregarBrujula = async (a) => {
+    const p = protagonistas.find((x) => x.id === a.id);
+    if (!p) return;
+    await updateDoc(ref('protagonistas', p.id), { [`brujulas.${a.bkey}`]: { ...(p.brujulas?.[a.bkey] || {}), estado: 'entregada', fecha: hoyISO() } });
+  };
 
   const alertas = useMemo(
     () => activos.flatMap((p) => alertasDe(p, config))
@@ -144,7 +157,11 @@ export default function Dashboard({ irAExpediente, irAlCiclo }) {
           {alertas.length + alertasCiclo.length === 0 && <p className="empty">Sin pendientes. Todo al día.</p>}
           {[...alertasCiclo, ...alertas].map((a, i) => (
             <div key={i} className={`alert ${a.nivel} clickable`} onClick={() => (a.accion ? a.accion() : irAExpediente(a.id))}>
-              {a.tipo === 'ciclo' && <span className="tag-ciclo">Ciclo de programa</span>} <strong>{a.nombre}</strong> — {a.texto}
+              {a.tipo === 'ciclo' && <span className="tag-ciclo">Ciclo de programa</span>}
+              {a.tipo === 'recordatorio' && <span className="tag-ciclo tag-rec">Recordatorio</span>}
+              {a.tipo === 'brújula' && <span className="tag-ciclo tag-bruj">Brújula</span>} <strong>{a.nombre}</strong> — {a.texto}
+              {a.tipo === 'recordatorio' && <button type="button" className="btn small accion" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); marcarHecho(a); }}>✓ Hecho</button>}
+              {a.tipo === 'brújula' && <button type="button" className="btn small accion" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); entregarBrujula(a); }}>✓ Entregada</button>}
             </div>
           ))}
         </div>

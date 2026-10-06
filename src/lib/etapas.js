@@ -144,6 +144,23 @@ export function alertasDe(p, config = CONFIG_DEFAULT, ref = new Date()) {
       texto: `Expediente incompleto: falta ${faltantes.join(', ')}` });
   }
 
+  // Recordatorios propios del protagonista (ej.: registrarlo en el SRM de la Asociación)
+  const inicioDia = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  for (const r of p.recordatorios || []) {
+    if (r.hecho || !String(r.texto || '').trim()) continue;
+    const limite = parseFecha(r.fecha);
+    const vencido = limite && limite <= inicioDia;
+    out.push({ tipo: 'recordatorio', nivel: vencido ? 'alta' : 'media', id: p.id, nombre, rid: r.id,
+      texto: `${r.texto.trim()}${limite ? ` (${vencido ? 'venció' : 'para'} el ${formatoFecha(r.fecha)})` : ''}` });
+  }
+
+  // Brújulas: insignia por entregar (se otorga por dominio de técnicas, nunca por edad)
+  for (const b of BRUJULAS) {
+    if (p.brujulas?.[b.key]?.estado === 'lista') {
+      out.push({ tipo: 'brújula', nivel: 'media', id: p.id, nombre, bkey: b.key, texto: `Entregar la insignia de ${b.label} (ya alcanzó el nivel de técnicas)` });
+    }
+  }
+
   // Cumpleaños del mes
   const n = parseFecha(p.fechaNacimiento);
   if (n && n.getMonth() === ref.getMonth()) {
@@ -226,3 +243,19 @@ export const CHEQUEOS_EXPEDIENTE = [
   ['alergias', 'alergias', (p) => !!(p.medico?.alergias || p.medico?.sinAlergias)],
 ];
 export const faltantesExpediente = (p) => CHEQUEOS_EXPEDIENTE.filter(([, , ok]) => !ok(p)).map(([k, etiqueta]) => ({ k, etiqueta }));
+
+// Brújulas: progresión complementaria. La insignia se entrega al alcanzar el nivel de dominio en técnicas, no por edad.
+export const BRUJULAS = [
+  { key: 'bronce', label: 'Brújula de Bronce', corto: 'Bronce', color: '#b0703a' },
+  { key: 'plata', label: 'Brújula Plateada', corto: 'Plateada', color: '#9aa4b2' },
+  { key: 'oro', label: 'Brújula Dorada', corto: 'Dorada', color: '#e0ab00' },
+  { key: 'platino', label: 'Brújula Platino', corto: 'Platino', color: '#5b6b82' },
+];
+export const ESTADOS_BRUJULA = [
+  { v: '', l: 'Aún no alcanza el nivel' },
+  { v: 'lista', l: 'Alcanzó el nivel: falta entregar la insignia' },
+  { v: 'entregada', l: 'Insignia entregada' },
+];
+// Última brújula entregada (o null)
+export const brujulaActual = (p) => [...BRUJULAS].reverse().find((b) => p?.brujulas?.[b.key]?.estado === 'entregada') || null;
+export const nuevoIdLocal = () => Math.random().toString(36).slice(2, 9);

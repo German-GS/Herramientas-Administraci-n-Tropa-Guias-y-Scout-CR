@@ -3,14 +3,14 @@ import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
-import { alertasDe, CARGOS, ITEMS_INSPECCION, edad, ETAPAS, formatoFecha, hoyISO, siguienteEtapa } from '../lib/etapas';
+import { alertasDe, BRUJULAS, brujulaActual, CARGOS, ESTADOS_BRUJULA, ITEMS_INSPECCION, edad, ETAPAS, formatoFecha, hoyISO, nuevoIdLocal, siguienteEtapa } from '../lib/etapas';
 
 const VACIO = {
   nombre: '', apellidos: '', fechaNacimiento: '', patrullaId: '', cargo: 'Integrante',
   etapa: ETAPAS[0], fechaIngreso: hoyISO(), fechaInicioEtapa: hoyISO(),
   encargado: { nombre: '', telefono: '', parentesco: '' },
   medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '', seguro: '' },
-  cedula: '', correo: '', etapaConfirmada: true, notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
+  cedula: '', correo: '', etapaConfirmada: true, recordatorios: [], brujulas: {}, notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
 };
 
 export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
@@ -49,7 +49,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
       {lista.length === 0 ? <p className="empty">No hay protagonistas registrados.</p> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Nombre</th><th>Edad</th><th>Patrulla</th><th>Cargo</th><th>Etapa</th><th>Desde</th><th>Avisos</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Edad</th><th>Patrulla</th><th>Cargo</th><th>Etapa</th><th>Brújula</th><th>Desde</th><th>Avisos</th></tr></thead>
             <tbody>
               {lista.map((p) => {
                 const al = alertasDe(p, config).filter((a) => a.tipo !== 'cumple');
@@ -60,6 +60,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
                     <td>{nombrePatrulla(p.patrullaId)}</td>
                     <td>{p.cargo}{p.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
                     <td><span className="badge">{p.etapa}</span></td>
+                    <td>{(() => { const b = brujulaActual(p); return b ? <span className="brujula-chip" title={b.label}><span className="brujula-punto" style={{ background: b.color }} />{b.corto}</span> : <span className="muted">—</span>; })()}</td>
                     <td>{formatoFecha(p.fechaInicioEtapa)}</td>
                     <td>{al.map((a, i) => <span key={i} className={`badge ${a.nivel}`} title={a.texto}>{a.tipo}</span>)}</td>
                   </tr>
@@ -83,6 +84,9 @@ function Expediente({ p, patrullas, config, onCerrar }) {
   }));
   const [guardando, setGuardando] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const setRec = (i, cambios) => setF((x) => ({ ...x, recordatorios: (x.recordatorios || []).map((r, j) => (j === i ? { ...r, ...cambios } : r)) }));
+  const agregarRec = (texto) => setF((x) => ({ ...x, recordatorios: [...(x.recordatorios || []), { id: nuevoIdLocal(), texto, fecha: '', hecho: false }] }));
+  const setBruj = (k, cambios) => setF((x) => ({ ...x, brujulas: { ...(x.brujulas || {}), [k]: { ...(x.brujulas?.[k] || {}), ...cambios } } }));
   const setSub = (g, k, v) => setF((x) => ({ ...x, [g]: { ...x[g], [k]: v } }));
 
   const guardar = async (e) => {
@@ -124,7 +128,27 @@ function Expediente({ p, patrullas, config, onCerrar }) {
         <button type="button" className="btn ghost" onClick={onCerrar}>← Volver</button>
       </div>
 
-      {alertas.map((a, i) => <div key={i} className={`alert ${a.nivel}`}>{a.texto}</div>)}
+      {alertas.filter((a) => a.tipo !== 'recordatorio').map((a, i) => <div key={i} className={`alert ${a.nivel}`}>{a.texto}</div>)}
+
+      <fieldset className="recordatorios">
+        <legend>Recordatorios de {f.nombre || 'este protagonista'}</legend>
+        <p className="muted">Pendientes propios de este expediente. Aparecen en el Inicio hasta que los marques como hechos.</p>
+        {(f.recordatorios || []).map((r, i) => (
+          <div key={r.id} className={r.hecho ? 'recordatorio hecho' : 'recordatorio'}>
+            <input type="checkbox" checked={!!r.hecho} aria-label="Hecho" title="Marcar como hecho"
+              onChange={(x) => setRec(i, { hecho: x.target.checked, fechaHecho: x.target.checked ? hoyISO() : '' })} />
+            <input className="rec-texto" value={r.texto} placeholder="Ej.: Registrar en el SRM de la Asociación y entregar el formulario" aria-label="Recordatorio"
+              onChange={(x) => setRec(i, { texto: x.target.value })} />
+            <input className="rec-fecha" type="date" value={r.fecha || ''} aria-label="Fecha límite (opcional)" title="Fecha límite (opcional)"
+              onChange={(x) => setRec(i, { fecha: x.target.value })} />
+            <button type="button" className="btn small quiet" aria-label="Quitar recordatorio" onClick={() => set('recordatorios', f.recordatorios.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+        <div className="row">
+          <button type="button" className="btn agregar" onClick={() => agregarRec('')}><span className="mas" aria-hidden="true">＋</span> Agregar recordatorio</button>
+          <button type="button" className="btn accion" onClick={() => agregarRec('Registrar en el SRM de la Asociación y entregar el formulario')}>Pendiente de registro en el SRM</button>
+        </div>
+      </fieldset>
 
       <fieldset>
         <legend>Datos personales</legend>
@@ -178,6 +202,30 @@ function Expediente({ p, patrullas, config, onCerrar }) {
             Historial: {f.historialEtapas.map((h) => `${h.etapa} (${formatoFecha(h.desde)} – ${formatoFecha(h.hasta)})`).join(' · ')}
           </div>
         )}
+      </fieldset>
+
+      <fieldset>
+        <legend>Brújulas (progresión complementaria)</legend>
+        <p className="muted">La insignia de brújula se entrega cuando el protagonista alcanza el nivel de dominio en las técnicas. No depende de la edad ni de la etapa.</p>
+        <div className="brujulas">
+          {BRUJULAS.map((b) => {
+            const bj = f.brujulas?.[b.key] || {};
+            return (
+              <div key={b.key} className={`brujula ${bj.estado || ''}`} style={{ borderLeftColor: b.color }}>
+                <div className="brujula-titulo"><span className="brujula-punto grande" style={{ background: b.color }} /> <strong>{b.label}</strong></div>
+                <div className="form">
+                  <label>Estado
+                    <select value={bj.estado || ''} onChange={(x) => setBruj(b.key, { estado: x.target.value, fecha: x.target.value === 'entregada' && !bj.fecha ? hoyISO() : bj.fecha })}>
+                      {ESTADOS_BRUJULA.map((e) => <option key={e.v} value={e.v}>{e.l}</option>)}
+                    </select>
+                  </label>
+                  {bj.estado === 'entregada' && <label>Fecha de entrega<input type="date" value={bj.fecha || ''} onChange={(x) => setBruj(b.key, { fecha: x.target.value })} /></label>}
+                  <label className="full">Técnicas dominadas / observaciones<input value={bj.obs || ''} onChange={(x) => setBruj(b.key, { obs: x.target.value })} /></label>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </fieldset>
 
       <fieldset>
