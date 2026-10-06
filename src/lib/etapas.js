@@ -190,7 +190,6 @@ export const AREAS = [
   { key: 'afectividad', label: 'Afectividad' },
   { key: 'sociabilidad', label: 'Sociabilidad' },
   { key: 'espiritualidad', label: 'Espiritualidad' },
-  { key: 'servicio', label: 'Servicio' },
 ];
 
 export const EVALUACION = [

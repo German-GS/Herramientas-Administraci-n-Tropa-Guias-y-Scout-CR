@@ -2,7 +2,7 @@ import mapa from './cicloPdfMapa.json' with { type: 'json' };
 import { AREAS, edad, ETAPAS } from './etapas.js';
 
 // Formulario oficial «Herramienta Ciclo de Programa» (AGSCR): llenarlo desde el sistema y leerlo ya llenado.
-const AREAS_PDF = AREAS.filter((a) => a.key !== 'servicio').map((a) => a.key);
+const AREAS_PDF = AREAS.map((a) => a.key); // las 6 áreas de crecimiento
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
 // El PDF usa fuentes estándar: se quitan emojis y símbolos fuera de su alfabeto
@@ -208,7 +208,6 @@ export async function generarPdfCiclo({ plantilla, ciclo, protagonistas, patrull
     texto(f.nombre, nombre(p), 'Proyección · nombre'); texto(f.ingreso, mesAnio(p.fechaIngreso), 'Proyección · ingreso'); texto(f.edad, edad(p.fechaNacimiento) ?? '', 'Proyección · edad');
     texto(f.etapaActual, p.etapa, 'Proyección · etapa actual'); texto(f.etapaCiclo, pr(p).etapaCiclo || p.etapa, 'Proyección · etapa en el ciclo');
     AREAS_PDF.forEach((k) => marca(f[k], !!pr(p).areas?.[k]));
-    texto(f.servicio, pr(p).areas?.servicio ? 'X' : '', 'Proyección · servicio');
     texto(f.actividades, pr(p).actividades, `Proyección · actividades de ${nombre(p)}`); texto(f.otras, pr(p).otras, `Proyección · otras de ${nombre(p)}`);
   };
   const n1 = mapa.prog1.length; const n3 = mapa.proy1.length;
@@ -367,8 +366,9 @@ export async function importarPdfCiclo(buffer, { protagonistas = [], patrullas =
     const p = buscar(T(f.nombre));
     if (!p) continue;
     const areas = Object.fromEntries(AREAS_PDF.map((k) => [k, C(f[k])]));
-    if (f.servicio && T(f.servicio)) areas.servicio = true;
-    asignar(p, T(f.etapaCiclo || f.etapa), areas, T(f.actividades), f.otras ? T(f.otras) : '');
+    // La columna «Servicio» del formulario es de actividades educativas (no un área): si trae texto, se conserva en «Otras»
+    const otras = [f.otras ? T(f.otras) : '', f.servicio && T(f.servicio) ? `Servicio: ${T(f.servicio)}` : ''].filter(Boolean).join(' · ');
+    asignar(p, T(f.etapaCiclo || f.etapa), areas, T(f.actividades), otras);
   }
   for (const e of extras.progresion || []) {
     const p = buscar(e.nombre);

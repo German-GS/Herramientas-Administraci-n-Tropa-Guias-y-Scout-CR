@@ -309,3 +309,5 @@ body { overflow-x: hidden; }
 .barra-valor { min-width: 3rem; text-align: right; }
 .criterio.destacado .barra-valor { font-size: 1.15rem; color: var(--navy); }
 @media (max-width: 860px) { .criterio.destacado { grid-column: auto; } }
+
+.editable.prog td select { min-width: 130px; }
