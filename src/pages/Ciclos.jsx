@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
-import { AREAS, CATEGORIAS, edad, ETAPAS, etiquetaCiclo, EVALUACION, formatoFecha, hoyISO } from '../lib/etapas';
+import { useConfig } from '../lib/useConfig';
+import { AREAS, CATEGORIAS, CRITERIOS, desglosePatrulla, edad, ETAPAS, etiquetaCiclo, EVALUACION, formatoFecha, hoyISO } from '../lib/etapas';
 import TablaEditable from '../components/TablaEditable.jsx';
 import CicloDocumento, { filasProgresion, totalesAreas } from '../components/CicloDocumento.jsx';
 
@@ -62,6 +63,7 @@ const SECCIONES = [
 
 function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
   const { col, ref, grupo, miembro } = useGrupo();
+  const [config] = useConfig();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: protagonistas } = useCollection('protagonistas');
   const [seccion, setSeccion] = useState('datos');
@@ -114,11 +116,18 @@ function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
     const rs = reuniones.filter((r) => r.cicloId === c.id);
     const es = extras.filter((e) => e.cicloId === c.id);
     return patrullas.map((p) => {
-      const porCat = Object.fromEntries(CATEGORIAS.map((k) => [k.key, rs.reduce((s, r) => s + (Number(r.puntajes?.[p.id]?.[k.key]) || 0), 0)]));
-      const extra = es.filter((e) => e.patrullaId === p.id).reduce((s, e) => s + (Number(e.puntos) || 0), 0);
-      return { ...p, porCat, extra, total: Object.values(porCat).reduce((a, b) => a + b, 0) + extra };
+      const acc = { crit: Object.fromEntries(CRITERIOS.map((k) => [k.key, 0])), lugar: 0, general: Object.fromEntries(CATEGORIAS.map((k) => [k.key, 0])) };
+      for (const r of rs) {
+        const d = desglosePatrulla(r, p.id, config);
+        CRITERIOS.forEach((k) => { acc.crit[k.key] += d.crit[k.key]; });
+        CATEGORIAS.forEach((k) => { acc.general[k.key] += d.general[k.key]; });
+        acc.lugar += d.lugar;
+      }
+      const extra = es.filter((e) => e.patrullaId === p.id).reduce((s2, e) => s2 + (Number(e.puntos) || 0), 0);
+      const total = Object.values(acc.crit).reduce((a, b) => a + b, 0) + acc.lugar + Object.values(acc.general).reduce((a, b) => a + b, 0) + extra;
+      return { ...p, ...acc, extra, total };
     }).sort((a, b) => b.total - a.total);
-  }, [c, reuniones, extras, patrullas]);
+  }, [c, reuniones, extras, patrullas, config]);
 
   if (vista) {
     return (
@@ -279,13 +288,13 @@ function EditorCiclo({ c, ciclos, reuniones, extras, onCerrar }) {
           <p className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</p>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>#</th><th>Patrulla</th>{CATEGORIAS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Extra</th><th>Total</th></tr></thead>
+              <thead><tr><th>#</th><th>Patrulla</th>{CRITERIOS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Lugares</th>{CATEGORIAS.map((k) => <th key={k.key}>{k.label}</th>)}<th>Extra</th><th>Total</th></tr></thead>
               <tbody>
                 {tabla.map((p, i) => (
                   <tr key={p.id}>
                     <td>{i === 0 && p.total > 0 ? '🏆' : i + 1}</td>
                     <td><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
-                    {CATEGORIAS.map((k) => <td key={k.key}>{p.porCat[k.key]}</td>)}
+                    {CRITERIOS.map((k) => <td key={k.key}>{p.crit[k.key]}</td>)}<td>{p.lugar}</td>{CATEGORIAS.map((k) => <td key={k.key}>{p.general[k.key]}</td>)}
                     <td className={p.extra >= 0 ? 'pos-num' : 'neg-num'}>{p.extra > 0 ? '+' : ''}{p.extra}</td>
                     <td><strong>{p.total}</strong></td>
                   </tr>

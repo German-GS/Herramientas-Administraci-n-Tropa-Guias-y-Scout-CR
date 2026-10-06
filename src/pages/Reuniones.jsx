@@ -3,7 +3,9 @@ import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
-import { CATEGORIAS, etiquetaCiclo, formatoFecha, hoyISO, totalReunionPatrulla } from '../lib/etapas';
+import { CATEGORIAS, CRITERIOS, desglosePatrulla, etiquetaCiclo, formatoFecha, hoyISO, listaPuntosLugar, TIPOS_ACTIVIDAD, totalReunionPatrulla } from '../lib/etapas';
+
+const nuevoId = () => Math.random().toString(36).slice(2, 9);
 import TablaEditable from '../components/TablaEditable.jsx';
 import ProgramaReunion from '../components/ProgramaReunion.jsx';
 
@@ -17,6 +19,7 @@ export default function Reuniones() {
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
   const [sel, setSel] = useState(null);
   const [copia, setCopia] = useState(null);
+  const [config] = useConfig();
 
   if (sel) {
     const r = sel === 'nueva' ? null : reuniones.find((x) => x.id === sel);
@@ -25,7 +28,7 @@ export default function Reuniones() {
   }
 
   const duplicar = (r) => {
-    const { id, puntajes, fecha, ...resto } = r;
+    const { id, puntajes, juegos, fecha, ...resto } = r;
     setCopia({ ...resto, fecha: hoyISO() });
     setSel('nueva');
   };
@@ -47,7 +50,7 @@ export default function Reuniones() {
                   <td>{formatoFecha(r.fecha)}</td>
                   <td>{r.fondo || r.tema || r.objetivo || '—'}</td>
                   <td>{etiquetaCiclo(ciclos.find((c) => c.id === r.cicloId)) || <span className="muted">sin ciclo</span>}</td>
-                  {patrullas.map((p) => <td key={p.id}><strong>{totalReunionPatrulla(r, p.id)}</strong></td>)}
+                  {patrullas.map((p) => <td key={p.id}><strong>{totalReunionPatrulla(r, p.id, config)}</strong></td>)}
                   <td><button className="btn small quiet" onClick={(e) => { e.stopPropagation(); duplicar(r); }}>Duplicar</button></td>
                 </tr>
               ))}
@@ -82,8 +85,9 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
     return {
       lugar: '', horaInicio: '', horaFin: '', encargado: miembro?.nombre || '',
       participantes: activos ? `${activos} protagonistas — ${patrullas.length} patrullas` : '',
-      objetivo: '', fondo: datos.tema || '', actividades: [], impresos: '', otrosMateriales: '', anexos: [], puntajes: {},
+      objetivo: '', fondo: datos.tema || '', impresos: '', otrosMateriales: '', anexos: [], puntajes: {}, juegos: {},
       ...datos, fecha,
+      actividades: (datos.actividades || []).map((a) => (a.id ? a : { ...a, id: nuevoId() })),
       cicloId: datos.cicloId ?? cicloDeFecha(ciclos, fecha),
     };
   });
@@ -97,6 +101,10 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
     const n = v === '' ? '' : Math.max(0, Math.min(max, Number(v)));
     setF((x) => ({ ...x, puntajes: { ...x.puntajes, [pid]: { ...(x.puntajes[pid] || {}), [cat]: n } } }));
   };
+  const setJuego = (aid, pid, k, v) => {
+    const n = v === '' ? '' : Math.max(0, Math.min(k === 'lugar' ? patrullas.length : max, Number(v)));
+    setF((x) => ({ ...x, juegos: { ...x.juegos, [aid]: { ...(x.juegos?.[aid] || {}), [pid]: { ...(x.juegos?.[aid]?.[pid] || {}), [k]: n } } } }));
+  };
   const setAct = (i, k, v) => set('actividades', f.actividades.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
 
   const guardar = async (e) => {
@@ -107,7 +115,15 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
       limpio[p.id] = {};
       for (const c of CATEGORIAS) limpio[p.id][c.key] = Number(f.puntajes[p.id]?.[c.key]) || 0;
     }
-    const data = { ...f, puntajes: limpio };
+    const juegos = {};
+    for (const a of f.actividades.filter((x) => x.tipo === 'activo')) {
+      juegos[a.id] = {};
+      for (const p of patrullas) {
+        const j = f.juegos?.[a.id]?.[p.id] || {};
+        juegos[a.id][p.id] = { ...Object.fromEntries(CRITERIOS.map((c) => [c.key, Number(j[c.key]) || 0])), lugar: Number(j.lugar) || 0 };
+      }
+    }
+    const data = { ...f, puntajes: limpio, juegos };
     try {
       if (r) await updateDoc(ref('reuniones', r.id), data);
       else await addDoc(col('reuniones'), data);
@@ -166,11 +182,12 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
             columnas={[
               { key: 'hora', label: 'Hora', tipo: 'time', min: 110 },
               { key: 'actividad', label: 'Actividad', min: 240 },
+              { key: 'tipo', label: 'Tipo', tipo: 'select', opciones: TIPOS_ACTIVIDAD.map((t) => ({ v: t.v, l: t.l })), min: 160 },
               { key: 'materiales', label: 'Materiales', min: 180 },
               { key: 'encargado', label: 'Encargado', min: 130 },
             ]}
             filas={f.actividades} onChange={(v) => set('actividades', v)}
-            nueva={{ hora: '', actividad: '', materiales: '', encargado: f.encargado, montaje: '', dinamica: '', variante: '', reto: '' }}
+            nueva={() => ({ id: nuevoId(), hora: '', actividad: '', tipo: '', materiales: '', encargado: f.encargado, montaje: '', dinamica: '', variante: '', reto: '' })}
             agregar="Agregar actividad" />
         </>
       )}
@@ -208,28 +225,82 @@ function EditorReunion({ r, base, patrullas, ciclos, onCerrar }) {
 
       {seccion === 'puntajes' && (
         patrullas.length === 0 ? <p className="empty">Primero creá las patrullas.</p> : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead><tr><th>Categoría (0–{max})</th>{patrullas.map((p) => <th key={p.id}><span className="dot" style={{ background: p.color }} /> {p.nombre}</th>)}</tr></thead>
-              <tbody>
-                {CATEGORIAS.map((c) => (
-                  <tr key={c.key}>
-                    <td>{c.label}</td>
-                    {patrullas.map((p) => (
-                      <td key={p.id}>
-                        <input type="number" min={0} max={max} style={{ width: 70 }}
-                          value={f.puntajes[p.id]?.[c.key] ?? ''} onChange={(e) => setPunto(p.id, c.key, e.target.value)} />
-                      </td>
+          <>
+            {f.actividades.filter((a) => a.tipo === 'activo').length === 0 && (
+              <p className="alert info">Marcá actividades como «Juego activo» en el Programa para puntuarlas aquí.</p>
+            )}
+            {f.actividades.filter((a) => a.tipo === 'activo').map((a) => (
+              <fieldset key={a.id} style={{ marginBottom: 12 }}>
+                <legend>{a.hora ? `${a.hora} · ` : ''}{a.actividad || 'Juego activo'}</legend>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Patrulla</th>
+                        {CRITERIOS.map((c) => <th key={c.key} title={c.ayuda}>{c.label} (1–{max})</th>)}
+                        <th>Lugar</th><th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {patrullas.map((p) => {
+                        const j = f.juegos?.[a.id]?.[p.id] || {};
+                        const porLugar = listaPuntosLugar(config);
+                        const pts = CRITERIOS.reduce((t, c) => t + (Number(j[c.key]) || 0), 0) + (j.lugar ? porLugar[Number(j.lugar) - 1] || 0 : 0);
+                        return (
+                          <tr key={p.id}>
+                            <td><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
+                            {CRITERIOS.map((c) => (
+                              <td key={c.key}>
+                                <input type="number" min={1} max={max} style={{ width: 64 }} aria-label={`${c.label} de ${p.nombre}`}
+                                  value={j[c.key] ?? ''} onChange={(e) => setJuego(a.id, p.id, c.key, e.target.value)} />
+                              </td>
+                            ))}
+                            <td>
+                              <select value={j.lugar || ''} onChange={(e) => setJuego(a.id, p.id, 'lugar', e.target.value)} aria-label={`Lugar de ${p.nombre}`}>
+                                <option value="">—</option>
+                                {patrullas.map((_, n) => <option key={n} value={n + 1}>{n + 1}.º ({porLugar[n] ?? 0} pts)</option>)}
+                              </select>
+                            </td>
+                            <td><strong>{pts}</strong></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </fieldset>
+            ))}
+            <p className="muted">
+              Espíritu: ánimo y cantos mientras no juegan · Vivencia: Ley y Promesa · Astucia: buenas ideas para facilitar el juego ·
+              Sistema: uso del sistema de patrullas · Lugar: puntos configurables en Ajustes.
+            </p>
+
+            <fieldset style={{ marginTop: 12 }}>
+              <legend>Puntaje general de la reunión (0–{max})</legend>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Categoría</th>{patrullas.map((p) => <th key={p.id}><span className="dot" style={{ background: p.color }} /> {p.nombre}</th>)}</tr></thead>
+                  <tbody>
+                    {CATEGORIAS.map((c) => (
+                      <tr key={c.key}>
+                        <td>{c.label}</td>
+                        {patrullas.map((p) => (
+                          <td key={p.id}>
+                            <input type="number" min={0} max={max} style={{ width: 70 }}
+                              value={f.puntajes[p.id]?.[c.key] ?? ''} onChange={(e) => setPunto(p.id, c.key, e.target.value)} />
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-                <tr>
-                  <td><strong>Total</strong></td>
-                  {patrullas.map((p) => <td key={p.id}><strong>{totalReunionPatrulla(f, p.id)}</strong></td>)}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                    <tr>
+                      <td><strong>Total de la reunión</strong></td>
+                      {patrullas.map((p) => <td key={p.id}><strong>{desglosePatrulla(f, p.id, config).total}</strong></td>)}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </fieldset>
+          </>
         )
       )}
 

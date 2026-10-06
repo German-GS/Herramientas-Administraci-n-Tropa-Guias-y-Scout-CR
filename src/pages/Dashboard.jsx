@@ -31,10 +31,10 @@ export default function Dashboard({ irAExpediente }) {
     const es = extras.filter((e) => e.cicloId === cicloActual.id);
     return patrullas.map((pa) => ({
       ...pa,
-      total: rs.reduce((s, r) => s + totalReunionPatrulla(r, pa.id), 0)
+      total: rs.reduce((s, r) => s + totalReunionPatrulla(r, pa.id, config), 0)
         + es.filter((e) => e.patrullaId === pa.id).reduce((s, e) => s + (Number(e.puntos) || 0), 0),
     })).sort((a, b) => b.total - a.total);
-  }, [cicloActual, reuniones, extras, patrullas]);
+  }, [cicloActual, reuniones, extras, patrullas, config]);
 
   const max = Math.max(1, ...ranking.map((r) => r.total));
   const ultima = [...reuniones].reverse()[0];

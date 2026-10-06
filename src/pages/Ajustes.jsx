@@ -19,6 +19,7 @@ export default function Ajustes() {
       avisoAnticipadoDias: Number(f.avisoAnticipadoDias),
       edadPasoSeccion: Number(f.edadPasoSeccion),
       puntajeMaxCategoria: Number(f.puntajeMaxCategoria),
+      puntosLugar: String(f.puntosLugar ?? ''),
     });
     setOk(true);
     setTimeout(() => setOk(false), 2000);
@@ -40,7 +41,11 @@ export default function Ajustes() {
           <label>Meses de referencia por etapa<input type="number" min={1} value={f.mesesPorEtapa} onChange={(e) => setF({ ...f, mesesPorEtapa: e.target.value })} /></label>
           <label>Avisar con (días) de anticipación<input type="number" min={0} value={f.avisoAnticipadoDias} onChange={(e) => setF({ ...f, avisoAnticipadoDias: e.target.value })} /></label>
           <label>Edad para evaluar paso a Wak<input type="number" min={10} value={f.edadPasoSeccion} onChange={(e) => setF({ ...f, edadPasoSeccion: e.target.value })} /></label>
-          <label>Puntaje máximo por categoría<input type="number" min={1} value={f.puntajeMaxCategoria} onChange={(e) => setF({ ...f, puntajeMaxCategoria: e.target.value })} /></label>
+          <label>Puntaje máximo por criterio (juegos)<input type="number" min={1} value={f.puntajeMaxCategoria} onChange={(e) => setF({ ...f, puntajeMaxCategoria: e.target.value })} /></label>
+          <label className="full">Puntos por lugar en un juego activo (1.º, 2.º, 3.º…)
+            <input value={f.puntosLugar ?? ''} placeholder="10, 7, 5, 3" onChange={(e) => setF({ ...f, puntosLugar: e.target.value })} />
+            <span className="muted">Separados por coma. Con 2 patrullas se usan los dos primeros; con 4, los cuatro.</span>
+          </label>
         </div>
         <button className="btn primary">Guardar</button> {ok && <span className="muted">Guardado ✓</span>}
         <p className="muted" style={{ marginTop: 12 }}>
@@ -52,7 +57,8 @@ export default function Ajustes() {
       <div className="card">
         <h2>Referencia</h2>
         <p><strong>Etapas:</strong> {ETAPAS.join(' → ')}</p>
-        <p><strong>Categorías por reunión:</strong> {CATEGORIAS.map((c) => c.label).join(', ')}</p>
+        <p><strong>Criterios por juego activo:</strong> Espíritu, Vivencia de Ley y Promesa, Astucia, Sistema de patrullas y lugar obtenido.</p>
+        <p><strong>Puntaje general por reunión:</strong> {CATEGORIAS.map((c) => c.label).join(', ')}</p>
         <h2 style={{ marginTop: 16 }}>Respaldo</h2>
         <p className="muted">Descarga todos los datos en un archivo JSON. Contiene datos personales y médicos de menores: guardalo en un lugar seguro.</p>
         <button className="btn" onClick={exportar}>Descargar respaldo</button>

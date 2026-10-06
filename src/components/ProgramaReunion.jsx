@@ -1,4 +1,6 @@
-import { fechaLarga, horaCorta } from '../lib/etapas';
+import { fechaLarga, horaCorta, TIPOS_ACTIVIDAD } from '../lib/etapas';
+
+const tipoL = (v) => TIPOS_ACTIVIDAD.find((t) => t.v === v)?.l;
 
 // Vista del «Programa de reunión» con el formato del documento de la Tropa (imprimible).
 export default function ProgramaReunion({ r }) {
@@ -20,7 +22,7 @@ export default function ProgramaReunion({ r }) {
         <thead><tr><th>Hora</th><th>Actividad</th><th>Materiales</th><th>Encargado</th></tr></thead>
         <tbody>
           {acts.map((a, i) => (
-            <tr key={i}><td>{horaCorta(a.hora)}</td><td>{a.actividad}</td><td>{a.materiales || '—'}</td><td>{a.encargado}</td></tr>
+            <tr key={i}><td>{horaCorta(a.hora)}</td><td>{a.actividad}{tipoL(a.tipo) && <small className="tipo-doc"> · {tipoL(a.tipo)}</small>}</td><td>{a.materiales || '—'}</td><td>{a.encargado}</td></tr>
           ))}
         </tbody>
       </table>

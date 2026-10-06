@@ -206,3 +206,5 @@ input[type=color] { padding: 2px; height: 38px; }
   .doc-tabla th { background: #e6e3f1 !important; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .doc-anexo { break-before: page; }
 }
+
+.tipo-doc { color: #555; font-style: italic; }
