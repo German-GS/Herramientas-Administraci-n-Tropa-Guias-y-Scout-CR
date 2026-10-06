@@ -80,6 +80,7 @@ function Panel({ user, acceso, onBloquear }) {
   const [tab, setTab] = useState('inicio');
   const [menu, setMenu] = useState(false);
   const [abrirExpediente, setAbrirExpediente] = useState(null);
+  const [abrirCiclo, setAbrirCiclo] = useState(null);
   const [bio, setBio] = useState(() => !!bioActivada(user.uid));
   const [bioOk, setBioOk] = useState(false);
   const [bioMsg, setBioMsg] = useState('');
@@ -97,6 +98,7 @@ function Panel({ user, acceso, onBloquear }) {
 
   const ir = (key) => { setTab(key); setMenu(false); if (key !== 'protagonistas') setAbrirExpediente(null); };
   const irAExpediente = (id) => { setAbrirExpediente(id); setTab('protagonistas'); };
+  const irAlCiclo = (id) => { setAbrirCiclo(id); setTab('ciclos'); };
 
   return (
     <GrupoProvider gid={acceso.gid} grupo={acceso.grupo} miembro={acceso.miembro}>
@@ -148,7 +150,8 @@ function Panel({ user, acceso, onBloquear }) {
         </aside>
         <main className="content">
           <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
-            limpiarExpediente={() => setAbrirExpediente(null)} esJefe={esJefe} />
+            limpiarExpediente={() => setAbrirExpediente(null)} irAlCiclo={irAlCiclo} abrirCiclo={abrirCiclo}
+            limpiarCiclo={() => setAbrirCiclo(null)} esJefe={esJefe} />
         </main>
       </div>
     </GrupoProvider>

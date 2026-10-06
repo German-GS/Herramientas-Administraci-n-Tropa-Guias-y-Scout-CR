@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
@@ -7,8 +7,9 @@ import { AREAS, CATEGORIAS, CRITERIOS, desglosePatrulla, edad, ETAPAS, etiquetaC
 import TablaEditable from '../components/TablaEditable.jsx';
 import IconoOjo from '../components/IconoOjo.jsx';
 import CicloDocumento, { filasProgresion, totalesAreas } from '../components/CicloDocumento.jsx';
+import { borrarBorrador, guardarBorrador, leerBorrador, pendientesCiclo, resumenPendientes, seccionesPendientes } from '../lib/cicloCompleto.js';
 
-export default function Ciclos() {
+export default function Ciclos({ abrirCiclo, limpiarCiclo }) {
   const { col, ref } = useGrupo();
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
@@ -21,6 +22,14 @@ export default function Ciclos() {
   const [avisos, setAvisos] = useState(null);
   const [importando, setImportando] = useState(false);
   const [errorImp, setErrorImp] = useState('');
+
+  // Llegada desde un recordatorio del Inicio
+  useEffect(() => {
+    if (!abrirCiclo) return;
+    setBase(null); setAvisos(null); setVistaDirecta(false); setSel(abrirCiclo);
+    limpiarCiclo?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirCiclo]);
 
   const importar = async (e) => {
     const archivo = e.target.files?.[0];
@@ -87,6 +96,11 @@ export default function Ciclos() {
           <div key={c.id} className="item">
             <div>
               <strong>{etiquetaCiclo(c)}</strong> {vigente && <span className="badge">Vigente</span>}
+              {(() => {
+                const pe = pendientesCiclo(c, { protagonistas, ciclos });
+                if (c.terminado || !pe.length) return <span className="badge"> {c.terminado ? 'Terminado' : 'Completo'}</span>;
+                return <span className="badge media"> Faltan {resumenPendientes(pe).faltan} secciones</span>;
+              })()}
               <div className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</div>
             </div>
             <div className="row">
@@ -144,7 +158,7 @@ function Enfasis({ tot }) {
 }
 
 function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial = false, onCerrar }) {
-  const { col, ref, grupo, miembro } = useGrupo();
+  const { gid, col, ref, grupo, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: protagonistas } = useCollection('protagonistas');
@@ -155,19 +169,39 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
   const [generando, setGenerando] = useState(false);
   const [mensaje, setMensaje] = useState('');
 
-  const [f, setF] = useState(() => {
-    const { id, ...d } = c || base || {};
+  // Estado completo del ciclo a partir de datos guardados (o importados); los vacíos toman valores por defecto
+  const construir = (datos) => {
+    const { id, ...d } = datos || {};
     const prev = cicloAnterior(ciclos, c?.id, d.inicio || hoyISO());
     const precarga = !(d.evaluacion?.actividades?.length) && prev ? filasDeCronograma(prev.cronograma) : null;
     return {
       numero: String(ciclos.length + 1), anio: new Date().getFullYear(), nombre: '', inicio: hoyISO(), fin: '', fecha: hoyISO(),
       nombreSeccion: `Tropa ${grupo?.numero || ''}`.trim(), objetivoGeneral: '', objetivosEspecificos: '',
-      traspasos: [], equipos: [], cronograma: [], progresion: {}, solicitudes: '', coordinadores: miembro?.nombre || '',
+      traspasos: [], equipos: [], cronograma: [], progresion: {}, solicitudes: '', coordinadores: miembro?.nombre || '', terminado: false,
       ...d,
       evaluacion: { actividades: [], logro: '', logroDetalle: '', logroEspecificos: '', gusto: '', noGusto: '', ...(d.evaluacion || {}), ...(precarga ? { actividades: precarga } : {}) },
       membresia: { nuevos: '', partidas: '', dirigentes: '', desercion: '', ...(d.membresia || {}) },
     };
-  });
+  };
+  // Un ciclo nuevo se compara contra uno en blanco; uno existente, contra lo guardado
+  const baseline = useRef(null);
+  if (baseline.current === null) baseline.current = JSON.stringify(construir(c || {}));
+  const borradorInicial = useRef(base ? null : leerBorrador(gid, c?.id)).current;
+  const [restaurado, setRestaurado] = useState(!!borradorInicial?.f);
+  const [f, setF] = useState(() => construir(borradorInicial?.f || c || base || {}));
+
+  // Autoguardado local: si hay cambios sin guardar se conserva un borrador y el Inicio avisa
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (JSON.stringify(f) === baseline.current) borrarBorrador(gid, c?.id); else guardarBorrador(gid, c?.id, f);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [f, gid, c?.id]);
+  const descartarBorrador = () => {
+    borrarBorrador(gid, c?.id);
+    setF(construir(c || base || {}));
+    setRestaurado(false);
+  };
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const setEv = (k, v) => setF((x) => ({ ...x, evaluacion: { ...x.evaluacion, [k]: v } }));
   const setMem = (k, v) => setF((x) => ({ ...x, membresia: { ...x.membresia, [k]: v } }));
@@ -204,6 +238,9 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
   const filas = filasProgresion(protagonistas);
   const tot = totalesAreas(filas, f.progresion);
+  const pend = pendientesCiclo({ ...f, id: c?.id }, { protagonistas, ciclos });
+  const secPend = seccionesPendientes(pend);
+  const resumen = resumenPendientes(pend);
 
   // Resumen de membresía: se calcula con los expedientes; cada valor se puede corregir a mano
   const auto = useMemo(() => ({
@@ -240,6 +277,8 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
     try {
       if (c) await updateDoc(ref('ciclos', c.id), cicloFinal);
       else await addDoc(col('ciclos'), cicloFinal);
+      borrarBorrador(gid, c?.id);
+      baseline.current = JSON.stringify(f); // evita que el autoguardado recree el borrador al cerrar
       onCerrar();
     } finally { setGuardando(false); }
   };
@@ -308,9 +347,24 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
         </div>
       )}
 
+      {restaurado && (
+        <div className="alert media" role="status">
+          <strong>Recuperamos tu borrador sin guardar.</strong> Revisalo y pulsá «Guardar ciclo».
+          <button type="button" className="link" style={{ marginLeft: 8 }} onClick={descartarBorrador}>Descartar el borrador</button>
+        </div>
+      )}
+      {!f.terminado && pend.length > 0 && (
+        <div className="alert info pendientes" role="status">
+          <strong>Falta completar {resumen.faltan} de {resumen.total} secciones:</strong> {resumen.nombres.join(' · ')}.
+          <span className="muted"> Las pestañas con ● tienen algo pendiente.</span>
+        </div>
+      )}
+
       <div className="seg multi">
         {SECCIONES.filter(([k]) => k !== 'resultados' || c).map(([k, l]) => (
-          <button key={k} type="button" className={seccion === k ? 'on' : ''} onClick={() => { setSeccion(k); setMensaje(''); }}>{l}</button>
+          <button key={k} type="button" className={seccion === k ? 'on' : ''} onClick={() => { setSeccion(k); setMensaje(''); }}>
+            {l}{secPend.has(k) && !f.terminado && <span className="pend" title="Pendiente" aria-label="pendiente"> ●</span>}
+          </button>
         ))}
       </div>
 
@@ -618,6 +672,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
         </>
       )}
 
+      <label className="terminado"><input type="checkbox" checked={!!f.terminado} onChange={(e) => set('terminado', e.target.checked)} /> Marcar el ciclo como terminado (deja de aparecer el recordatorio en el Inicio)</label>
       <div className="row" style={{ marginTop: 14 }}>
         <button className="btn primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar ciclo'}</button>
         <button type="button" className="btn" onClick={() => setVista(true)}>Ver / imprimir documento</button>

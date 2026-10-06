@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
+import { useGrupo } from '../lib/grupo.jsx';
+import { listarBorradores, pendientesCiclo, resumenPendientes } from '../lib/cicloCompleto.js';
 import { alertasDe, CATEGORIAS, CRITERIOS, desglosePatrulla, etiquetaCiclo, formatoFecha, hoyISO } from '../lib/etapas';
 
 const ORDEN_NIVEL = { alta: 0, media: 1, info: 2 };
@@ -32,7 +34,8 @@ function Barras({ datos, valor }) {
   });
 }
 
-export default function Dashboard({ irAExpediente }) {
+export default function Dashboard({ irAExpediente, irAlCiclo }) {
+  const { gid } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
@@ -50,6 +53,31 @@ export default function Dashboard({ irAExpediente }) {
   );
 
   const hoy = hoyISO();
+
+  // Recordatorios del ciclo de programa: borradores sin guardar y ciclos con secciones pendientes
+  const alertasCiclo = useMemo(() => {
+    const out = [];
+    const borradores = listarBorradores(gid);
+    for (const b of borradores) {
+      const guardado = ciclos.find((x) => x.id === b.id);
+      if (b.id !== 'nuevo' && !guardado) continue; // el ciclo ya no existe
+      const nombre = `Ciclo ${b.f.numero || ''}${b.f.nombre ? ` — ${b.f.nombre}` : ''}`.trim();
+      const hace = b.ts ? new Date(b.ts).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      out.push({ tipo: 'ciclo', nivel: 'alta', nombre, texto: `Tenés cambios sin guardar${hace ? ` (${hace})` : ''}. Abrilo y pulsá «Guardar ciclo».`, accion: () => irAlCiclo?.(b.id) });
+    }
+    const limite = new Date(); limite.setDate(limite.getDate() - 45);
+    const desde = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}-${String(limite.getDate()).padStart(2, '0')}`;
+    for (const c of ciclos) {
+      if (c.terminado || (c.fin && c.fin < desde) || borradores.some((b) => b.id === c.id)) continue;
+      const pe = pendientesCiclo(c, { protagonistas, ciclos });
+      if (!pe.length) continue;
+      const r = resumenPendientes(pe);
+      out.push({ tipo: 'ciclo', nivel: 'media', nombre: etiquetaCiclo(c), texto: `Falta terminar el ciclo de programa: ${r.faltan} de ${r.total} secciones pendientes (${r.nombres.join(', ')}).`, accion: () => irAlCiclo?.(c.id) });
+    }
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gid, ciclos, protagonistas]);
+
   const cicloActual = ciclos.find((c) => c.inicio <= hoy && (!c.fin || c.fin >= hoy))
     || ciclos[ciclos.length - 1];
   const ultima = [...reuniones].reverse()[0];
@@ -113,10 +141,10 @@ export default function Dashboard({ irAExpediente }) {
 
         <div className="card">
           <h2>Recordatorios</h2>
-          {alertas.length === 0 && <p className="empty">Sin pendientes. Todo al día.</p>}
-          {alertas.map((a, i) => (
-            <div key={i} className={`alert ${a.nivel} clickable`} onClick={() => irAExpediente(a.id)}>
-              <strong>{a.nombre}</strong> — {a.texto}
+          {alertas.length + alertasCiclo.length === 0 && <p className="empty">Sin pendientes. Todo al día.</p>}
+          {[...alertasCiclo, ...alertas].map((a, i) => (
+            <div key={i} className={`alert ${a.nivel} clickable`} onClick={() => (a.accion ? a.accion() : irAExpediente(a.id))}>
+              {a.tipo === 'ciclo' && <span className="tag-ciclo">Ciclo de programa</span>} <strong>{a.nombre}</strong> — {a.texto}
             </div>
           ))}
         </div>
