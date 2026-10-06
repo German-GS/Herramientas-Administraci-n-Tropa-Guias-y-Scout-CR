@@ -208,6 +208,7 @@ export async function generarPdfCiclo({ plantilla, ciclo, protagonistas, patrull
     texto(f.nombre, nombre(p), 'Proyección · nombre'); texto(f.ingreso, mesAnio(p.fechaIngreso), 'Proyección · ingreso'); texto(f.edad, edad(p.fechaNacimiento) ?? '', 'Proyección · edad');
     texto(f.etapaActual, p.etapa, 'Proyección · etapa actual'); texto(f.etapaCiclo, pr(p).etapaCiclo || p.etapa, 'Proyección · etapa en el ciclo');
     AREAS_PDF.forEach((k) => marca(f[k], !!pr(p).areas?.[k]));
+    texto(f.servicio, pr(p).servicio, `Proyección · servicio de ${nombre(p)}`);
     texto(f.actividades, pr(p).actividades, `Proyección · actividades de ${nombre(p)}`); texto(f.otras, pr(p).otras, `Proyección · otras de ${nombre(p)}`);
   };
   const n1 = mapa.prog1.length; const n3 = mapa.proy1.length;
@@ -219,14 +220,14 @@ export async function generarPdfCiclo({ plantilla, ciclo, protagonistas, patrull
   const capSimple = n1 + mapa.prog2.length; const capDet = n3 + mapa.proy2.length;
   const sobran = lista.slice(Math.max(capSimple, capDet));
   // Los que caben en la proyección pero no en el cuadro de seguimiento solo aparecen en la proyección; los que no caben en ninguna van a la hoja adicional
-  extras.progresion = sobran.map((p) => ({ nombre: nombre(p), etapa: p.etapa, etapaCiclo: pr(p).etapaCiclo || '', areas: pr(p).areas || {}, actividades: pr(p).actividades || '', otras: pr(p).otras || '' }));
+  extras.progresion = sobran.map((p) => ({ nombre: nombre(p), etapa: p.etapa, etapaCiclo: pr(p).etapaCiclo || '', areas: pr(p).areas || {}, actividades: pr(p).actividades || '', otras: pr(p).otras || '', servicio: pr(p).servicio || '' }));
   const sinCuadro = lista.slice(capSimple, capDet);
   if (sobran.length || sinCuadro.length) {
     const resto = [...sinCuadro, ...sobran].filter((p, k, a) => a.indexOf(p) === k);
     secciones.push({
       titulo: 'Progresión personal (continuación)',
-      columnas: [{ t: 'Nombre', w: 130 }, { t: 'Etapa actual', w: 62 }, { t: 'Etapa en ciclo', w: 62 }, ...AREAS.map((a) => ({ t: a.label.slice(0, 5) + '.', w: 34, centro: true })), { t: 'Actividades propuestas', w: 120 }, { t: 'Otras', w: 90 }],
-      filas: resto.map((p) => [nombre(p), p.etapa, pr(p).etapaCiclo || p.etapa, ...AREAS.map((a) => (pr(p).areas?.[a.key] ? 'X' : '')), pr(p).actividades, pr(p).otras]),
+      columnas: [{ t: 'Nombre', w: 130 }, { t: 'Etapa actual', w: 62 }, { t: 'Etapa en ciclo', w: 62 }, ...AREAS.map((a) => ({ t: a.label.slice(0, 5) + '.', w: 34, centro: true })), { t: 'Servicio', w: 70 }, { t: 'Actividades propuestas', w: 110 }, { t: 'Otras', w: 80 }],
+      filas: resto.map((p) => [nombre(p), p.etapa, pr(p).etapaCiclo || p.etapa, ...AREAS.map((a) => (pr(p).areas?.[a.key] ? 'X' : '')), pr(p).servicio, pr(p).actividades, pr(p).otras]),
     });
   }
 
@@ -359,20 +360,18 @@ export async function importarPdfCiclo(buffer, { protagonistas = [], patrullas =
     if (cand.length !== 1) { avisos.push(cand.length ? `«${nombreTxt}» coincide con varios protagonistas; se omitió.` : `«${nombreTxt}» no coincide con ningún protagonista de los expedientes; se omitió.`); return null; }
     return cand[0].p;
   };
-  const asignar = (p, etapaTxt, areas, actividades, otras) => {
-    progresion[p.id] = { etapaCiclo: ETAPAS.find((e) => norm(e) === norm(etapaTxt)) || undefined, areas, actividades, otras };
+  const asignar = (p, etapaTxt, areas, actividades, otras, servicio = '') => {
+    progresion[p.id] = { etapaCiclo: ETAPAS.find((e) => norm(e) === norm(etapaTxt)) || undefined, areas, actividades, otras, servicio };
   };
   for (const f of usar) {
     const p = buscar(T(f.nombre));
     if (!p) continue;
     const areas = Object.fromEntries(AREAS_PDF.map((k) => [k, C(f[k])]));
-    // La columna «Servicio» del formulario es de actividades educativas (no un área): si trae texto, se conserva en «Otras»
-    const otras = [f.otras ? T(f.otras) : '', f.servicio && T(f.servicio) ? `Servicio: ${T(f.servicio)}` : ''].filter(Boolean).join(' · ');
-    asignar(p, T(f.etapaCiclo || f.etapa), areas, T(f.actividades), otras);
+    asignar(p, T(f.etapaCiclo || f.etapa), areas, T(f.actividades), f.otras ? T(f.otras) : '', f.servicio ? T(f.servicio) : '');
   }
   for (const e of extras.progresion || []) {
     const p = buscar(e.nombre);
-    if (p) asignar(p, e.etapaCiclo, e.areas || {}, e.actividades || '', e.otras || '');
+    if (p) asignar(p, e.etapaCiclo, e.areas || {}, e.actividades || '', e.otras || '', e.servicio || '');
   }
 
   const traspasos = mapa.traspasos.filter(filaConTexto).map((f) => ({ nombre: T(f.nombre), actividad: T(f.actividad), observaciones: T(f.obs) })).concat(extras.traspasos || []);

@@ -104,22 +104,51 @@ export default function Ciclos() {
 
 const SECCIONES = [
   ['datos', 'Datos'],
-  ['evaluacion', 'Evaluación'],
-  ['progresion', 'Progresión personal'],
-  ['propuesta', 'Propuesta'],
+  ['evaluacion', 'Evaluación y diagnóstico'],
+  ['seguimiento', 'Seguimiento de progresión'],
+  ['traspasos', 'Traspasos y ceremonias'],
+  ['propuesta', 'Propuesta: equipos'],
+  ['objetivos', 'Objetivos del ciclo'],
+  ['cronograma', 'Cronograma'],
+  ['proyeccion', 'Proyección (dirigente)'],
   ['junta', 'Membresía y Junta'],
   ['resultados', 'Puntaje final'],
 ];
+
+const mesAnio = (iso) => { const m = /^(\d{4})-(\d{2})/.exec(iso || ''); return m ? `${m[2]}/${m[1]}` : '—'; };
+const enRango = (fecha, ini, fin) => !!fecha && fecha >= (ini || '') && fecha <= (fin || hoyISO());
+const nombreDe = (p) => `${p.nombre || ''} ${p.apellidos || ''}`.trim();
+
+// Totales por área de crecimiento y énfasis del ciclo (las áreas con más marcas)
+function Enfasis({ tot }) {
+  const max = Math.max(0, ...Object.values(tot));
+  const lideres = AREAS.filter((a) => max > 0 && tot[a.key] === max);
+  return (
+    <div className="enfasis" role="status">
+      <div className="enfasis-titulo">
+        {max > 0 ? <>Énfasis del ciclo: <strong>{lideres.map((a) => a.label).join(' y ')}</strong></> : 'Marcá las áreas para ver el énfasis del ciclo'}
+      </div>
+      <div className="enfasis-chips">
+        {AREAS.map((a) => (
+          <span key={a.key} className={max > 0 && tot[a.key] === max ? 'chip lider' : 'chip'}>{a.label} <b>{tot[a.key]}</b></span>
+        ))}
+      </div>
+      <div className="muted">Las sumatorias mayores definen las áreas que deben tener mayor énfasis en el siguiente ciclo.</div>
+    </div>
+  );
+}
 
 function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial = false, onCerrar }) {
   const { col, ref, grupo, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: protagonistas } = useCollection('protagonistas');
+  const { docs: miembros } = useCollection('miembros');
   const [seccion, setSeccion] = useState('datos');
   const [vista, setVista] = useState(vistaInicial);
   const [guardando, setGuardando] = useState(false);
   const [generando, setGenerando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
   const [f, setF] = useState(() => {
     const { id, ...d } = c || base || {};
@@ -129,7 +158,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
       traspasos: [], equipos: [], cronograma: [], progresion: {}, solicitudes: '', coordinadores: miembro?.nombre || '',
       ...d,
       evaluacion: { actividades: [], logro: '', logroDetalle: '', logroEspecificos: '', gusto: '', noGusto: '', ...(d.evaluacion || {}) },
-      membresia: { nuevos: '', partidas: '', desercion: '', ...(d.membresia || {}) },
+      membresia: { nuevos: '', partidas: '', dirigentes: '', desercion: '', ...(d.membresia || {}) },
     };
   });
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
@@ -147,14 +176,40 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
     if (!anterior?.cronograma?.length) return alert('El ciclo anterior no tiene cronograma guardado.');
     setEv('actividades', anterior.cronograma.map((a) => ({ ...a, eval: '', obs: '' })));
   };
-  const cargarPatrullas = () => set('equipos', patrullas.map((p) => ({ patrullaId: p.id, nombre: p.nombre, general: '', especificos: '' })));
+  const cargarPatrullas = () => {
+    const ya = new Set(f.equipos.map((e) => e.patrullaId).filter(Boolean));
+    set('equipos', [...f.equipos, ...patrullas.filter((p) => !ya.has(p.id)).map((p) => ({ patrullaId: p.id, nombre: p.nombre, general: '', especificos: '' }))]);
+  };
+  const traspasosAlCronograma = () => {
+    const existentes = new Set(f.cronograma.map((a) => a.actividad));
+    const nuevas = f.traspasos.filter((t) => t.actividad || t.nombre)
+      .map((t) => ({ fecha: '', actividad: `${t.actividad || 'Traspaso o ceremonia'}${t.nombre ? ` — ${t.nombre}` : ''}`, objetivo: t.observaciones || '', responsable: '' }))
+      .filter((a) => !existentes.has(a.actividad));
+    set('cronograma', [...f.cronograma, ...nuevas]);
+    setMensaje(nuevas.length ? `Se agregaron ${nuevas.length} al cronograma. Falta ponerles fecha.` : 'Todos los traspasos ya estaban en el cronograma.');
+  };
+
+  const filas = filasProgresion(protagonistas);
+  const tot = totalesAreas(filas, f.progresion);
+
+  // Resumen de membresía: se calcula con los expedientes; cada valor se puede corregir a mano
+  const auto = useMemo(() => ({
+    nuevos: protagonistas.filter((p) => enRango(p.fechaIngreso, f.inicio, f.fin)).length,
+    partidas: protagonistas.filter((p) => p.activo === false && enRango(p.fechaSalida, f.inicio, f.fin)).length,
+    dirigentes: miembros.filter((m) => m.estado === 'activo').length,
+    activos: filas.length,
+  }), [protagonistas, miembros, f.inicio, f.fin, filas.length]);
+  const valorMem = (k) => (f.membresia[k] !== undefined && f.membresia[k] !== '' && f.membresia[k] !== null ? f.membresia[k] : auto[k]);
+  const membresiaFinal = { ...f.membresia, nuevos: valorMem('nuevos'), partidas: valorMem('partidas'), dirigentes: valorMem('dirigentes'), activos: auto.activos };
+  const cicloFinal = { ...f, membresia: membresiaFinal };
+  const salidas = protagonistas.filter((p) => p.activo === false && enRango(p.fechaSalida, f.inicio, f.fin));
 
   const generarPdf = async () => {
     setGenerando(true);
     try {
       const { generarPdfCiclo } = await import('../lib/cicloPdf.js');
       const plantilla = await (await fetch('/formularios/Herramienta_Ciclo_de_Programa.pdf')).arrayBuffer();
-      const { bytes, avisos: av } = await generarPdfCiclo({ plantilla, ciclo: f, protagonistas, patrullas, grupo });
+      const { bytes, avisos: av } = await generarPdfCiclo({ plantilla, ciclo: cicloFinal, protagonistas, patrullas, grupo });
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
       const a = document.createElement('a');
       a.href = url; a.download = `Ciclo_${f.numero || ''}_${f.anio || ''}_Tropa_${grupo?.numero || ''}.pdf`;
@@ -170,14 +225,11 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
     e?.preventDefault();
     setGuardando(true);
     try {
-      if (c) await updateDoc(ref('ciclos', c.id), f);
-      else await addDoc(col('ciclos'), f);
+      if (c) await updateDoc(ref('ciclos', c.id), cicloFinal);
+      else await addDoc(col('ciclos'), cicloFinal);
       onCerrar();
     } finally { setGuardando(false); }
   };
-
-  const filas = filasProgresion(protagonistas);
-  const tot = totalesAreas(filas, f.progresion);
 
   const tabla = useMemo(() => {
     if (!c) return [];
@@ -207,10 +259,28 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
           </div>
           <button className="btn primary" onClick={() => window.print()}>Imprimir / guardar PDF</button>
         </div>
-        <CicloDocumento c={f} protagonistas={protagonistas} patrullas={patrullas} grupo={grupo} />
+        <CicloDocumento c={cicloFinal} protagonistas={protagonistas} patrullas={patrullas} grupo={grupo} />
       </div>
     );
   }
+
+  const selectEtapa = (p, pr) => (
+    <select value={pr.etapaCiclo || p.etapa} onChange={(e) => setProg(p.id, { etapaCiclo: e.target.value })} aria-label={`Etapa en el ciclo de ${p.nombre}`}>
+      {ETAPAS.map((x) => <option key={x}>{x}</option>)}
+    </select>
+  );
+  const celdasAreas = (p, pr) => AREAS.map((a) => (
+    <td key={a.key} className="c" data-label={a.label}>
+      <input type="checkbox" checked={!!pr.areas?.[a.key]} onChange={(e) => setArea(p.id, a.key, e.target.checked)} aria-label={`${a.label} de ${p.nombre}`} />
+    </td>
+  ));
+  const totalesFila = (antes, despues) => (
+    <tr className="totales">
+      <td colSpan={antes}><strong>Total</strong></td>
+      {AREAS.map((a) => <td key={a.key} className="c" data-label={a.label}><strong>{tot[a.key]}</strong></td>)}
+      {despues > 0 && <td colSpan={despues} />}
+    </tr>
+  );
 
   return (
     <form className="card" onSubmit={guardar}>
@@ -227,7 +297,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
       <div className="seg multi">
         {SECCIONES.filter(([k]) => k !== 'resultados' || c).map(([k, l]) => (
-          <button key={k} type="button" className={seccion === k ? 'on' : ''} onClick={() => setSeccion(k)}>{l}</button>
+          <button key={k} type="button" className={seccion === k ? 'on' : ''} onClick={() => { setSeccion(k); setMensaje(''); }}>{l}</button>
         ))}
       </div>
 
@@ -247,6 +317,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
       {seccion === 'evaluacion' && (
         <>
           <h3>Evaluación de actividades del ciclo anterior</h3>
+          <p className="muted">(*) 3 · Cumplido &nbsp; 2 · Parcialmente cumplido &nbsp; 1 · No se cumplió</p>
           <div className="row" style={{ marginBottom: 8 }}>
             <button type="button" className="btn small" onClick={traerCronogramaAnterior} disabled={!anterior}>
               Traer cronograma {anterior ? `de «${etiquetaCiclo(anterior)}»` : 'del ciclo anterior'}
@@ -256,114 +327,202 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
             columnas={[
               { key: 'fecha', label: 'Fecha', tipo: 'date', min: 140 }, { key: 'actividad', label: 'Actividad', min: 200 },
               { key: 'objetivo', label: 'Objetivo', min: 180 }, { key: 'responsable', label: 'Responsable', min: 130 },
-              { key: 'eval', label: 'Evaluación', tipo: 'select', opciones: EVALUACION, min: 170 }, { key: 'obs', label: 'Observaciones / aspectos a mejorar', min: 220 },
+              { key: 'eval', label: 'Evaluación (*)', tipo: 'select', opciones: EVALUACION, min: 170 }, { key: 'obs', label: 'Observaciones / aspectos a mejorar', min: 220 },
             ]}
             filas={f.evaluacion.actividades} onChange={(v) => setEv('actividades', v)} agregar="Agregar actividad" />
-          <div className="form" style={{ marginTop: 12 }}>
-            <label>Logro del objetivo propuesto en el ciclo anterior
+          <h3 style={{ marginTop: 16 }}>Diagnóstico</h3>
+          <div className="form">
+            <label>1. Logro del objetivo propuesto en el ciclo anterior
               <select value={f.evaluacion.logro} onChange={(e) => setEv('logro', e.target.value)}>
                 <option value="">—</option><option value="si">Sí</option><option value="parcial">Parcial</option><option value="no">No</option>
               </select>
             </label>
             <label>Detalle<input value={f.evaluacion.logroDetalle} onChange={(e) => setEv('logroDetalle', e.target.value)} /></label>
-            <label>Logro de los objetivos específicos en el ciclo anterior
+            <label>2. Logro de los objetivos específicos en el ciclo anterior
               <select value={f.evaluacion.logroEspecificosEstado || ''} onChange={(e) => setEv('logroEspecificosEstado', e.target.value)}>
                 <option value="">—</option><option value="si">Sí</option><option value="parcial">Parcial</option><option value="no">No</option>
               </select>
             </label>
             <label>Detalle<input value={f.evaluacion.logroEspecificos} onChange={(e) => setEv('logroEspecificos', e.target.value)} /></label>
-          </div>
-          <h3 style={{ marginTop: 14 }}>Diagnóstico</h3>
-          <div className="form">
-            <label className="full">¿Cuál actividad LES GUSTÓ y por qué?<textarea rows={3} value={f.evaluacion.gusto} onChange={(e) => setEv('gusto', e.target.value)} /></label>
-            <label className="full">¿Cuál actividad NO LES GUSTÓ y por qué?<textarea rows={3} value={f.evaluacion.noGusto} onChange={(e) => setEv('noGusto', e.target.value)} /></label>
+            <label className="full">3. ¿Cuál actividad LES GUSTÓ y por qué?<textarea rows={3} value={f.evaluacion.gusto} onChange={(e) => setEv('gusto', e.target.value)} /></label>
+            <label className="full">4. ¿Cuál actividad NO LES GUSTÓ y por qué?<textarea rows={3} value={f.evaluacion.noGusto} onChange={(e) => setEv('noGusto', e.target.value)} /></label>
           </div>
         </>
       )}
 
-      {seccion === 'progresion' && (
+      {seccion === 'seguimiento' && (
         <>
-          <p className="muted">Marcá las áreas a trabajar con cada protagonista. Los datos personales salen de los expedientes activos.</p>
-          {filas.length === 0 ? <p className="empty">No hay protagonistas activos.</p> : (
-            <div className="table-wrap">
-              <table className="table editable prog">
-                <thead>
-                  <tr><th>#</th><th>Nombre</th><th>Edad</th><th>Etapa actual</th><th>Etapa en ciclo</th>
-                    {AREAS.map((a) => <th key={a.key} className="c">{a.label}</th>)}<th>Actividades propuestas</th><th>Otras</th></tr>
-                </thead>
-                <tbody>
-                  {filas.map((p, i) => {
-                    const pr = f.progresion[p.id] || {};
-                    return (
-                      <tr key={p.id}>
-                        <td data-label="#">{i + 1}</td>
-                        <td data-label="Nombre"><strong>{p.nombre} {p.apellidos}</strong></td>
-                        <td data-label="Edad">{edad(p.fechaNacimiento) ?? '—'}</td>
-                        <td data-label="Etapa actual">{p.etapa}</td>
-                        <td data-label="Etapa en ciclo">
-                          <select value={pr.etapaCiclo || p.etapa} onChange={(e) => setProg(p.id, { etapaCiclo: e.target.value })}>
-                            {ETAPAS.map((x) => <option key={x}>{x}</option>)}
-                          </select>
-                        </td>
-                        {AREAS.map((a) => (
-                          <td key={a.key} className="c" data-label={a.label}>
-                            <input type="checkbox" checked={!!pr.areas?.[a.key]} onChange={(e) => setArea(p.id, a.key, e.target.checked)} aria-label={`${a.label} de ${p.nombre}`} />
-                          </td>
-                        ))}
-                        <td data-label="Actividades propuestas"><input value={pr.actividades || ''} onChange={(e) => setProg(p.id, { actividades: e.target.value })} /></td>
-                        <td data-label="Otras"><input value={pr.otras || ''} onChange={(e) => setProg(p.id, { otras: e.target.value })} /></td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="totales"><td colSpan={5}><strong>Total</strong></td>{AREAS.map((a) => <td key={a.key} className="c"><strong>{tot[a.key]}</strong></td>)}<td colSpan={2} /></tr>
-                </tbody>
-              </table>
-            </div>
+          <h3>Seguimiento de la progresión personal para el siguiente ciclo</h3>
+          <p className="muted">Se carga con los protagonistas activos de «Expedientes». Marcá las áreas de crecimiento a trabajar con cada uno.</p>
+          {filas.length === 0 ? <p className="empty">No hay protagonistas activos. Registralos en «Expedientes».</p> : (
+            <>
+              <div className="table-wrap">
+                <table className="table editable prog">
+                  <thead>
+                    <tr><th>#</th><th>Nombre</th><th>Etapa</th><th>Actividades propuestas</th>{AREAS.map((a) => <th key={a.key} className="c">{a.label}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {filas.map((p, i) => {
+                      const pr = f.progresion[p.id] || {};
+                      return (
+                        <tr key={p.id}>
+                          <td data-label="#">{i + 1}</td>
+                          <td data-label="Nombre"><strong>{nombreDe(p)}</strong></td>
+                          <td data-label="Etapa">{selectEtapa(p, pr)}</td>
+                          <td data-label="Actividades propuestas"><input value={pr.actividades || ''} onChange={(e) => setProg(p.id, { actividades: e.target.value })} /></td>
+                          {celdasAreas(p, pr)}
+                        </tr>
+                      );
+                    })}
+                    {totalesFila(4, 0)}
+                  </tbody>
+                </table>
+              </div>
+              <Enfasis tot={tot} />
+            </>
           )}
-          <p className="muted">Las áreas de mayor puntaje serán el énfasis del ciclo.</p>
-          <h3 style={{ marginTop: 14 }}>Traspasos o ceremonias para el siguiente ciclo</h3>
+        </>
+      )}
+
+      {seccion === 'traspasos' && (
+        <>
+          <h3>Traspasos y ceremonias que deben incluirse en el cronograma del siguiente ciclo</h3>
           <TablaEditable
             columnas={[{ key: 'nombre', label: 'Nombre', min: 160 }, { key: 'actividad', label: 'Actividad (traspaso o ceremonia)', min: 240 }, { key: 'observaciones', label: 'Observaciones', min: 200 }]}
-            filas={f.traspasos} onChange={(v) => set('traspasos', v)} agregar="Agregar traspaso o ceremonia" />
+            filas={f.traspasos} onChange={(v) => set('traspasos', v)} agregar="Agregar traspaso o ceremonia"
+            acciones={f.traspasos.length > 0 && <button type="button" className="btn small" onClick={traspasosAlCronograma}>Incluir en el cronograma →</button>} />
+          {mensaje && <p className="ok" role="status">{mensaje}</p>}
+          <p className="muted">Estos traspasos y ceremonias deben tomarse en cuenta en el cronograma del siguiente ciclo.</p>
         </>
       )}
 
       {seccion === 'propuesta' && (
         <>
-          <h3>Objetivos de equipo (patrullas)</h3>
-          {f.equipos.length === 0 && patrullas.length > 0 && (
-            <button type="button" className="btn small" onClick={cargarPatrullas} style={{ marginBottom: 8 }}>Cargar mis patrullas</button>
+          <h3>Propuesta y selección de actividades</h3>
+          <p><strong>Ciclo número:</strong> {f.numero} &nbsp; <strong>Año:</strong> {f.anio} &nbsp; <strong>Período:</strong> {formatoFecha(f.inicio)} – {f.fin ? formatoFecha(f.fin) : '—'}</p>
+          <h3 style={{ marginTop: 14 }}>Objetivos del equipo (patrulla)</h3>
+          {patrullas.some((p) => !f.equipos.some((e) => e.patrullaId === p.id)) && (
+            <button type="button" className="btn small" onClick={cargarPatrullas} style={{ marginBottom: 8 }}>
+              {f.equipos.length ? 'Agregar las patrullas que faltan' : 'Cargar mis patrullas'}
+            </button>
           )}
           <TablaEditable
-            columnas={[{ key: 'nombre', label: 'Equipo', min: 140 }, { key: 'general', label: 'Objetivo general', tipo: 'textarea', min: 240 }, { key: 'especificos', label: 'Objetivos específicos', tipo: 'textarea', min: 280 }]}
+            columnas={[{ key: 'nombre', label: 'Nombre de equipo / patrulla', min: 140 }, { key: 'general', label: 'Objetivo general', tipo: 'textarea', min: 240 }, { key: 'especificos', label: 'Objetivos específicos', tipo: 'textarea', min: 280 }]}
             filas={f.equipos} onChange={(v) => set('equipos', v)} agregar="Agregar equipo" />
-          <div className="form" style={{ marginTop: 12 }}>
-            <label className="full">Objetivo general<textarea rows={3} value={f.objetivoGeneral} onChange={(e) => set('objetivoGeneral', e.target.value)} /></label>
-            <label className="full">Objetivos específicos<textarea rows={4} value={f.objetivosEspecificos} onChange={(e) => set('objetivosEspecificos', e.target.value)} /></label>
+        </>
+      )}
+
+      {seccion === 'objetivos' && (
+        <>
+          <h3>Objetivo general y objetivos específicos del nuevo ciclo</h3>
+          <div className="form">
+            <label className="full">Objetivo general<textarea rows={7} value={f.objetivoGeneral} onChange={(e) => set('objetivoGeneral', e.target.value)} /></label>
+            <label className="full">Objetivos específicos<textarea rows={9} value={f.objetivosEspecificos} onChange={(e) => set('objetivosEspecificos', e.target.value)} /></label>
           </div>
-          <h3 style={{ marginTop: 14 }}>Cronograma</h3>
-          <p className="muted">Recordá contemplar calendario nacional, cumpleaños, ceremonias, traspasos, reunión de padres, aniversarios, entre otros.</p>
+        </>
+      )}
+
+      {seccion === 'cronograma' && (
+        <>
+          <h3>Cronograma del nuevo ciclo</h3>
+          <p className="muted">
+            ✱ Recordá incluir todas las actividades del calendario nacional, internacional y mundial, cumpleaños, ceremonias, traspasos,
+            reunión de padres, reuniones regulares de la sección, actividades seleccionadas por los chicos, aniversarios, entre otros.
+          </p>
           <TablaEditable
             columnas={[{ key: 'fecha', label: 'Fecha', tipo: 'date', min: 140 }, { key: 'actividad', label: 'Actividad', min: 220 }, { key: 'objetivo', label: 'Objetivo', min: 220 }, { key: 'responsable', label: 'Responsable', min: 130 }]}
-            filas={f.cronograma} onChange={(v) => set('cronograma', v)} agregar="Agregar actividad" />
+            filas={f.cronograma} onChange={(v) => set('cronograma', v)} agregar="Agregar actividad"
+            acciones={f.cronograma.length > 1 && (
+              <button type="button" className="btn small quiet" onClick={() => set('cronograma', [...f.cronograma].sort((a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999')))}>Ordenar por fecha</button>
+            )} />
+          <p className="muted">{f.cronograma.length} {f.cronograma.length === 1 ? 'actividad' : 'actividades'}. Podés agregar, quitar y reordenar filas; si pasan de 30, el PDF oficial suma hojas adicionales.</p>
           <div className="form" style={{ marginTop: 12 }}>
-            <label className="full">Coordinadores de la sección (firma)<input value={f.coordinadores} onChange={(e) => set('coordinadores', e.target.value)} /></label>
+            <label className="full">Nombre y firma del (los) coordinadores de la sección<input value={f.coordinadores} onChange={(e) => set('coordinadores', e.target.value)} /></label>
           </div>
+        </>
+      )}
+
+      {seccion === 'proyeccion' && (
+        <>
+          <h3>Proyección de la progresión personal — para dirigente de sección</h3>
+          <p className="muted">Marcá las áreas a trabajar de cada miembro. Nombre, ingreso, edad y etapa actual se cargan solos desde los expedientes; las marcas son las mismas del seguimiento.</p>
+          {filas.length === 0 ? <p className="empty">No hay protagonistas activos. Registralos en «Expedientes».</p> : (
+            <>
+              <div className="table-wrap">
+                <table className="table editable prog">
+                  <thead>
+                    <tr><th>#</th><th>Nombre</th><th>Fecha de ingreso (mes/año)</th><th>Edad</th><th>Etapa actual</th><th>Etapa en el ciclo</th>
+                      {AREAS.map((a) => <th key={a.key} className="c">{a.label}</th>)}<th>Servicio</th><th>Actividades propuestas</th><th>Otras</th></tr>
+                  </thead>
+                  <tbody>
+                    {filas.map((p, i) => {
+                      const pr = f.progresion[p.id] || {};
+                      return (
+                        <tr key={p.id}>
+                          <td data-label="#">{i + 1}</td>
+                          <td data-label="Nombre"><strong>{nombreDe(p)}</strong></td>
+                          <td data-label="Fecha de ingreso (mes/año)">{mesAnio(p.fechaIngreso)}</td>
+                          <td data-label="Edad">{edad(p.fechaNacimiento) ?? '—'}</td>
+                          <td data-label="Etapa actual">{p.etapa}</td>
+                          <td data-label="Etapa en el ciclo">{selectEtapa(p, pr)}</td>
+                          {celdasAreas(p, pr)}
+                          <td data-label="Servicio"><input value={pr.servicio || ''} onChange={(e) => setProg(p.id, { servicio: e.target.value })} /></td>
+                          <td data-label="Actividades propuestas"><input value={pr.actividades || ''} onChange={(e) => setProg(p.id, { actividades: e.target.value })} /></td>
+                          <td data-label="Otras"><input value={pr.otras || ''} onChange={(e) => setProg(p.id, { otras: e.target.value })} /></td>
+                        </tr>
+                      );
+                    })}
+                    {totalesFila(6, 3)}
+                  </tbody>
+                </table>
+              </div>
+              <Enfasis tot={tot} />
+            </>
+          )}
         </>
       )}
 
       {seccion === 'junta' && (
         <>
           <h3>Resumen de membresía</h3>
+          <p className="muted">Se calcula con los expedientes durante la vigencia del ciclo. Podés corregir cualquier número; «Recalcular» vuelve a los valores automáticos.</p>
           <div className="form">
-            <label># Nuevos ingresos / juveniles<input type="number" min={0} value={f.membresia.nuevos} onChange={(e) => setMem('nuevos', e.target.value)} /></label>
-            <label># Partida de miembros<input type="number" min={0} value={f.membresia.partidas} onChange={(e) => setMem('partidas', e.target.value)} /></label>
-            <label># de dirigentes de la sección<input type="number" min={0} value={f.membresia.dirigentes ?? ''} onChange={(e) => setMem('dirigentes', e.target.value)} /></label>
-            <label>Total de miembros activos<input value={filas.length} disabled /></label>
-            <label className="full">¿Sabe por qué se dio la deserción? (motivo)<textarea rows={2} value={f.membresia.desercion} onChange={(e) => setMem('desercion', e.target.value)} /></label>
+            <label># Nuevos ingresos / juveniles
+              <input type="number" min={0} value={valorMem('nuevos')} onChange={(e) => setMem('nuevos', e.target.value)} />
+              <span className="muted">Automático: {auto.nuevos} (ingresaron entre {formatoFecha(f.inicio)} y {f.fin ? formatoFecha(f.fin) : 'hoy'})</span>
+            </label>
+            <label># Partida de miembros
+              <input type="number" min={0} value={valorMem('partidas')} onChange={(e) => setMem('partidas', e.target.value)} />
+              <span className="muted">Automático: {auto.partidas} (inactivos con fecha de salida en el ciclo)</span>
+            </label>
+            <label>Total de miembros activos
+              <input value={auto.activos} disabled />
+              <span className="muted">Protagonistas activos en este momento</span>
+            </label>
+            <label># de dirigentes de la sección
+              <input type="number" min={0} value={valorMem('dirigentes')} onChange={(e) => setMem('dirigentes', e.target.value)} />
+              <span className="muted">Automático: {auto.dirigentes} (dirigentes activos del grupo)</span>
+            </label>
           </div>
-          <h3 style={{ marginTop: 14 }}>Solicitudes importantes a la Junta de Grupo</h3>
-          <textarea rows={5} style={{ width: '100%' }} value={f.solicitudes} onChange={(e) => set('solicitudes', e.target.value)} />
+          <div className="row" style={{ margin: '8px 0' }}>
+            <button type="button" className="btn small" onClick={() => setF((x) => ({ ...x, membresia: { ...x.membresia, nuevos: '', partidas: '', dirigentes: '' } }))}>↺ Recalcular automático</button>
+          </div>
+          <div className="form">
+            <label className="full">¿Sabe por qué se dio la deserción? (indicar el motivo)
+              <textarea rows={3} value={f.membresia.desercion} onChange={(e) => setMem('desercion', e.target.value)} />
+            </label>
+          </div>
+          {salidas.some((p) => p.motivoSalida) && (
+            <button type="button" className="btn small" onClick={() => setMem('desercion', salidas.filter((p) => p.motivoSalida).map((p) => `${nombreDe(p)}: ${p.motivoSalida}`).join('\n'))}>
+              Usar los motivos registrados en los expedientes
+            </button>
+          )}
+
+          <h3 style={{ marginTop: 18 }}>Solicitudes importantes a la Junta de Grupo (transporte / materiales)</h3>
+          <textarea rows={7} style={{ width: '100%' }} value={f.solicitudes} onChange={(e) => set('solicitudes', e.target.value)} />
+          <p className="muted" style={{ marginTop: 8 }}>
+            Nombre y firma del (los) dirigentes: {miembros.filter((m) => m.estado === 'activo').map((m) => m.nombre || m.email).join(' · ') || '—'}
+          </p>
         </>
       )}
 

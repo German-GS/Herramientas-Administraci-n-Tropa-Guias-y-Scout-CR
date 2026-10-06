@@ -45,7 +45,7 @@ export default function CicloDocumento({ c, protagonistas, patrullas, grupo }) {
       <h2>Proyección de la Progresión Personal</h2>
       <table className="doc-tabla chica">
         <thead><tr><th>#</th><th>Nombre</th><th>Ingreso</th><th>Edad</th><th>Etapa actual</th><th>Etapa en ciclo</th>
-          {AREAS.map((a) => <th key={a.key}>{a.label}</th>)}<th>Actividades propuestas</th><th>Otras</th></tr></thead>
+          {AREAS.map((a) => <th key={a.key}>{a.label}</th>)}<th>Servicio</th><th>Actividades propuestas</th><th>Otras</th></tr></thead>
         <tbody>
           {filas.map((p, i) => {
             const pr = c.progresion?.[p.id] || {};
@@ -54,11 +54,11 @@ export default function CicloDocumento({ c, protagonistas, patrullas, grupo }) {
                 <td>{i + 1}</td><td>{p.nombre} {p.apellidos}</td><td>{formatoFecha(p.fechaIngreso)}</td><td>{edad(p.fechaNacimiento) ?? ''}</td>
                 <td>{p.etapa}</td><td>{pr.etapaCiclo || p.etapa}</td>
                 {AREAS.map((a) => <td key={a.key} className="c">{marca(pr.areas?.[a.key])}</td>)}
-                <td>{pr.actividades}</td><td>{pr.otras}</td>
+                <td>{pr.servicio}</td><td>{pr.actividades}</td><td>{pr.otras}</td>
               </tr>
             );
           })}
-          <tr><td colSpan={6}><b>Total</b></td>{AREAS.map((a) => <td key={a.key} className="c"><b>{tot[a.key]}</b></td>)}<td colSpan={2} /></tr>
+          <tr><td colSpan={6}><b>Total</b></td>{AREAS.map((a) => <td key={a.key} className="c"><b>{tot[a.key]}</b></td>)}<td colSpan={3} /></tr>
         </tbody>
       </table>
       <p><b>Énfasis del ciclo</b> (las áreas de mayor puntaje): {enfasis}</p>

@@ -10,7 +10,7 @@ const VACIO = {
   etapa: ETAPAS[0], fechaIngreso: hoyISO(), fechaInicioEtapa: hoyISO(),
   encargado: { nombre: '', telefono: '', parentesco: '' },
   medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '', seguro: '' },
-  notas: '', activo: true, promesado: false, fechaPromesa: '', historialEtapas: [],
+  notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
 };
 
 export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
@@ -156,7 +156,13 @@ function Expediente({ p, patrullas, config, onCerrar }) {
             </select>
           </label>
           <label>Inicio de la etapa actual<input type="date" value={f.fechaInicioEtapa} onChange={(x) => set('fechaInicioEtapa', x.target.value)} /></label>
-          <label className="full"><span><input type="checkbox" checked={f.activo !== false} onChange={(x) => set('activo', x.target.checked)} /> Activo en la Tropa</span></label>
+          <label className="full"><span><input type="checkbox" checked={f.activo !== false} onChange={(x) => setF((y) => ({ ...y, activo: x.target.checked, fechaSalida: !x.target.checked && !y.fechaSalida ? hoyISO() : y.fechaSalida }))} /> Activo en la Tropa</span></label>
+          {f.activo === false && (
+            <>
+              <label>Fecha de salida<input type="date" value={f.fechaSalida || ''} onChange={(x) => set('fechaSalida', x.target.value)} /></label>
+              <label>Motivo de la salida (para el resumen de membresía del ciclo)<input value={f.motivoSalida || ''} onChange={(x) => set('motivoSalida', x.target.value)} /></label>
+            </>
+          )}
           <label className="full"><span><input type="checkbox" checked={!!f.promesado} onChange={(x) => set('promesado', x.target.checked)} /> Ya hizo su Promesa (promesado) — habilita «uniforme completo» en la inspección</span></label>
           {f.promesado && <label>Fecha de la Promesa<input type="date" value={f.fechaPromesa || ''} onChange={(x) => set('fechaPromesa', x.target.value)} /></label>}
         </div>
