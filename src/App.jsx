@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useAcceso } from './lib/useAcceso';
 import { activarBio, bioActivada, bioDisponible, quitarBio, verificarBio } from './lib/biometria';
@@ -159,13 +159,21 @@ export default function App() {
   const [user, setUser] = useState(undefined);
   const [, refrescar] = useState(0);
   const [aviso, setAviso] = useState('');
+  const [errorRedir, setErrorRedir] = useState('');
   const [libre, setLibre] = useState(false); // false tras recargar: si hay huella activada, se pide
   const acceso = useAcceso(user);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
+  // Regreso del login de Google por redirección (celulares)
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((r) => { if (r?.user) setLibre(true); })
+      .catch((e) => setErrorRedir(`No se pudo completar el ingreso con Google (${e.code || e.message}). Probá con tu correo y contraseña.`));
+  }, []);
+
   if (user === undefined) return <div className="center">Cargando…</div>;
-  if (!user) return <Login onEntrar={() => setLibre(true)} />;
+  if (!user) return <Login onEntrar={() => setLibre(true)} errorInicial={errorRedir} />;
 
   const bio = bioActivada(user.uid);
   if (bio && !libre) return <Bloqueo bio={bio} onLibre={() => setLibre(true)} />;

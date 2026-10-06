@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail,
-  signInWithEmailAndPassword, signInWithPopup, updateProfile,
+  signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, updateProfile,
 } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
 import FormDirigente from './FormDirigente.jsx';
@@ -34,17 +34,23 @@ function GoogleG() {
   );
 }
 
-export default function Login({ onEntrar }) {
+// En celulares (sobre todo Safari/iPhone) las ventanas emergentes de login fallan: se usa redirección de página completa
+const esMovil = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+
+export default function Login({ onEntrar, errorInicial = '' }) {
   const [vista, setVista] = useState('entrar'); // entrar | registro | recuperar
   const [f, setF] = useState({ email: '', clave: '' });
-  const [error, setError] = useState('');
+  const [error, setError] = useState(errorInicial);
   const [info, setInfo] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const cambiar = (v) => { setVista(v); setError(''); setInfo(''); };
 
   const conGoogle = async () => {
     setError(''); setOcupado(true);
-    try { await signInWithPopup(auth, googleProvider); onEntrar?.(); }
+    try {
+      if (esMovil()) { await signInWithRedirect(auth, googleProvider); return; } // la página se va a Google y vuelve sola
+      await signInWithPopup(auth, googleProvider); onEntrar?.();
+    }
     catch (e) { if (!IGNORAR.includes(e.code)) setError(msg(e)); }
     finally { setOcupado(false); }
   };
