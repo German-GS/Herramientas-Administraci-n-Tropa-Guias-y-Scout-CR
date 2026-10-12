@@ -4,7 +4,7 @@ import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
 import { listarBorradores, pendientesCiclo, resumenPendientes } from '../lib/cicloCompleto.js';
-import { cicloVigente, diasHasta } from '../lib/puntajes.js';
+import { cicloDe, cicloVigente, delCiclo, diasHasta, tienePuntos } from '../lib/puntajes.js';
 import { listarBorradoresDe } from '../lib/borradores.js';
 import { alertasDe, CATEGORIAS, CRITERIOS, desglosePatrulla, etiquetaCiclo, formatoFecha, hoyISO } from '../lib/etapas';
 
@@ -95,6 +95,13 @@ export default function Dashboard({ irAExpediente, irAlCiclo, irAReunion, irATab
       out.push({ tipo: 'ciclo', nivel: 'media', nombre: etiquetaCiclo(c), texto: `Falta terminar el ciclo de programa: ${r.faltan} de ${r.total} secciones pendientes (${r.nombres.join(', ')}).`, accion: () => irAlCiclo?.(c.id) });
     }
 
+    // Reuniones con puntajes que no caen en ningún ciclo: no suman hasta crear el ciclo que las contiene
+    const sueltas = reuniones.filter((r) => r.fecha <= hoy && tienePuntos(r) && !cicloDe(r, ciclos));
+    if (sueltas.length) {
+      const fechas = sueltas.slice(-3).map((r) => formatoFecha(r.fecha)).join(', ');
+      out.unshift({ tipo: 'ciclo', nivel: 'alta', nombre: 'Puntajes sin ciclo', texto: `Hay ${sueltas.length} reunión(es) con puntajes que no pertenecen a ningún ciclo (${fechas}). Creá el ciclo vigente con sus fechas de inicio y fin: al guardarlo, esos puntos se suman solos.`, accion: () => irAlCiclo?.('nuevo') });
+    }
+
     // Fin del ciclo: se avisa con anticipación; al terminar el puntaje vuelve a cero y el histórico queda archivado
     const vig = cicloVigente(ciclos, hoy);
     const siguiente = ciclos.filter((x) => x.inicio > hoy).sort((a, b) => a.inicio.localeCompare(b.inicio))[0];
@@ -119,7 +126,7 @@ export default function Dashboard({ irAExpediente, irAlCiclo, irAReunion, irATab
     }
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gid, ciclos, protagonistas, config.avisoCicloDias]);
+  }, [gid, ciclos, reuniones, protagonistas, config.avisoCicloDias]);
 
   const cicloActual = cicloVigente(ciclos, hoy);
   const ultimoTerminado = ciclos.filter((c) => c.fin && c.fin < hoy).sort((a, b) => a.fin.localeCompare(b.fin)).pop();
@@ -129,8 +136,8 @@ export default function Dashboard({ irAExpediente, irAlCiclo, irAReunion, irATab
   const datos = useMemo(() => {
     const rs = alcance === 'ultima'
       ? (ultima ? [ultima] : [])
-      : (cicloActual ? reuniones.filter((r) => r.cicloId === cicloActual.id) : []);
-    const es = alcance === 'ciclo' && cicloActual ? extras.filter((e) => e.cicloId === cicloActual.id) : [];
+      : (cicloActual ? delCiclo(reuniones, cicloActual, ciclos) : []);
+    const es = alcance === 'ciclo' && cicloActual ? delCiclo(extras, cicloActual, ciclos) : [];
     return patrullas.map((pa) => {
       const acc = { crit: Object.fromEntries(CRITERIOS.map((c) => [c.key, 0])), lugar: 0, asistencia: 0, inspeccion: 0, general: Object.fromEntries(CATEGORIAS.map((c) => [c.key, 0])), total: 0 };
       for (const r of rs) {
@@ -142,7 +149,7 @@ export default function Dashboard({ irAExpediente, irAlCiclo, irAReunion, irATab
       const extra = es.filter((e) => e.patrullaId === pa.id).reduce((s, e) => s + (Number(e.puntos) || 0), 0);
       return { ...pa, ...acc, extra, total: acc.total + extra, reuniones: rs.length };
     });
-  }, [alcance, ultima, cicloActual, reuniones, extras, patrullas, config]);
+  }, [alcance, ultima, cicloActual, ciclos, reuniones, extras, patrullas, config]);
 
   const ranking = [...datos].sort((a, b) => b.total - a.total);
   const max = Math.max(1, ...ranking.map((r) => r.total));

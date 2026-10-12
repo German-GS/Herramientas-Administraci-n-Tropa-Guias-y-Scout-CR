@@ -25,7 +25,7 @@ export default function ArchivadorCiclos() {
       if (!c.fin || c.fin >= hoy || c.historico || enCurso.current.has(c.id)) continue;
       enCurso.current.add(c.id);
       const historico = JSON.parse(JSON.stringify({
-        ...resultadoCiclo(c, { reuniones: reuniones.docs, extras: extras.docs, patrullas: patrullas.docs, protagonistas: protagonistas.docs, config }),
+        ...resultadoCiclo(c, { reuniones: reuniones.docs, extras: extras.docs, patrullas: patrullas.docs, protagonistas: protagonistas.docs, ciclos: ciclos.docs, config }),
         archivado: new Date().toISOString(),
       }));
       updateDoc(ref('ciclos', c.id), { historico }).catch(() => enCurso.current.delete(c.id));

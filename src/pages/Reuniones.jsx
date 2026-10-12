@@ -18,6 +18,7 @@ import IconoOjo from '../components/IconoOjo.jsx';
 import { importarMachote } from '../lib/importarMachote';
 import { borrarBorradorDe, guardarBorradorDe, leerBorradorDe } from '../lib/borradores.js';
 import { useAtras } from '../lib/useAtras.js';
+import { cicloDe as cicloDeItem } from '../lib/puntajes.js';
 import ProgramaReunion from '../components/ProgramaReunion.jsx';
 
 function cicloDeFecha(ciclos, fecha) {
@@ -111,7 +112,7 @@ export default function Reuniones({ abrirReunion, limpiarReunion, activa = true 
                 <tr key={r.id} className="clickable" onClick={() => setSel(r.id)}>
                   <td className="titulo" data-label="Fecha"><strong>{formatoFecha(r.fecha)}</strong></td>
                   <td className="completo" data-label="Fondo motivador"><span className="clamp">{r.fondo || r.tema || r.objetivo || '—'}</span></td>
-                  <td className="completo" data-label="Ciclo">{etiquetaCiclo(ciclos.find((c) => c.id === r.cicloId)) || <span className="muted">sin ciclo</span>}</td>
+                  <td className="completo" data-label="Ciclo">{etiquetaCiclo(ciclos.find((c) => c.id === cicloDeItem(r, ciclos))) || <span className="muted">sin ciclo</span>}</td>
                   {patrullas.map((p) => <td key={p.id} data-label={p.nombre}><strong>{totalReunionPatrulla(r, p.id, config)}</strong></td>)}
                   <td className="acciones">
                     <button className="btn small icono" title="Ver el programa" aria-label="Ver el programa" onClick={(e) => { e.stopPropagation(); setVistaDirecta(true); setSel(r.id); }}><IconoOjo /></button>

@@ -78,7 +78,7 @@ export default function Historico() {
   const [trabajando, setTrabajando] = useState('');
   const hoy = hoyISO();
   const vigente = cicloVigente(ciclos, hoy);
-  const contexto = { reuniones, extras, patrullas, protagonistas, config };
+  const contexto = { reuniones, extras, patrullas, protagonistas, ciclos, config };
 
   const terminados = useMemo(() => ciclos.filter((c) => c.fin && c.fin < hoy).sort((a, b) => b.fin.localeCompare(a.fin))
     .map((c) => ({ c, res: c.historico || resultadoCiclo(c, contexto), archivado: !!c.historico })),

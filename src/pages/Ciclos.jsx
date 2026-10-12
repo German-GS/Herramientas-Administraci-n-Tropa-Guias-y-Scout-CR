@@ -10,6 +10,7 @@ import IconoOjo from '../components/IconoOjo.jsx';
 import CicloDocumento, { filasProgresion, totalesAreas } from '../components/CicloDocumento.jsx';
 import { borrarBorrador, guardarBorrador, leerBorrador, pendientesCiclo, resumenPendientes, seccionesPendientes } from '../lib/cicloCompleto.js';
 import { useAtras } from '../lib/useAtras.js';
+import { delCiclo } from '../lib/puntajes.js';
 
 export default function Ciclos({ abrirCiclo, limpiarCiclo, activa = true }) {
   const { col, ref } = useGrupo();
@@ -58,7 +59,7 @@ export default function Ciclos({ abrirCiclo, limpiarCiclo, activa = true }) {
   }
 
   const borrar = async (c) => {
-    const usados = reuniones.some((r) => r.cicloId === c.id) || extras.some((x) => x.cicloId === c.id);
+    const usados = delCiclo(reuniones, c, ciclos).length > 0 || delCiclo(extras, c, ciclos).length > 0;
     if (usados) return alert('Este ciclo tiene reuniones o puntos asociados; no se puede borrar.');
     if (confirm(`¿Borrar ${etiquetaCiclo(c)}?`)) await deleteDoc(ref('ciclos', c.id));
   };
@@ -103,7 +104,7 @@ export default function Ciclos({ abrirCiclo, limpiarCiclo, activa = true }) {
                 if (c.terminado || !pe.length) return <span className="badge"> {c.terminado ? 'Terminado' : 'Completo'}</span>;
                 return <span className="badge media"> Faltan {resumenPendientes(pe).faltan} secciones</span>;
               })()}
-              <div className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</div>
+              <div className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {delCiclo(reuniones, c, ciclos).length} reuniones</div>
             </div>
             <div className="row">
               <button className="btn small icono" title="Ver el documento" aria-label="Ver el documento" onClick={() => { setVistaDirecta(true); setSel(c.id); }}><IconoOjo /></button>
@@ -296,8 +297,8 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
   const tabla = useMemo(() => {
     if (!c) return [];
-    const rs = reuniones.filter((r) => r.cicloId === c.id);
-    const es = extras.filter((e) => e.cicloId === c.id);
+    const rs = delCiclo(reuniones, c, ciclos);
+    const es = delCiclo(extras, c, ciclos);
     return patrullas.map((p) => {
       const acc = { crit: Object.fromEntries(CRITERIOS.map((k) => [k.key, 0])), lugar: 0, asistencia: 0, inspeccion: 0, general: Object.fromEntries(CATEGORIAS.map((k) => [k.key, 0])) };
       for (const r of rs) {
@@ -666,7 +667,7 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
       {seccion === 'resultados' && c && (
         <>
-          <p className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {reuniones.filter((r) => r.cicloId === c.id).length} reuniones</p>
+          <p className="muted">{formatoFecha(c.inicio)} – {c.fin ? formatoFecha(c.fin) : 'en curso'} · {delCiclo(reuniones, c, ciclos).length} reuniones</p>
           {c.historico && <p className="alert info">Este ciclo terminó: su resultado final quedó archivado en «Histórico» el {formatoFecha((c.historico.archivado || '').slice(0, 10))}.</p>}
           <div className="table-wrap">
             <table className="table cards-movil">

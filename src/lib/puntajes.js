@@ -3,6 +3,18 @@ import { CATEGORIAS, CRITERIOS, ITEMS_INSPECCION, desglosePatrulla, hoyISO, pars
 // Ciclo vigente: el que contiene la fecha de hoy
 export const cicloVigente = (ciclos, hoy = hoyISO()) => ciclos.find((c) => c.inicio <= hoy && (!c.fin || c.fin >= hoy)) || null;
 
+// Ciclo al que pertenece una reunión o un punto extra: el guardado si existe; si no, el que contiene su fecha.
+// Así lo registrado antes de crear el ciclo (o sin elegirlo) también suma.
+export function cicloDe(item, ciclos) {
+  if (item.cicloId && ciclos.some((c) => c.id === item.cicloId)) return item.cicloId;
+  return ciclos.find((c) => item.fecha >= c.inicio && (!c.fin || item.fecha <= c.fin))?.id || '';
+}
+export const delCiclo = (items, ciclo, ciclos) => items.filter((x) => cicloDe(x, ciclos) === ciclo.id);
+// ¿La reunión ya tiene algo puntuado? (asistencia, juegos o puntaje general)
+export const tienePuntos = (r) => Object.keys(r.asistencia || {}).length > 0
+  || Object.values(r.juegos || {}).some((j) => Object.values(j || {}).some((x) => Object.values(x || {}).some((v) => Number(v) > 0)))
+  || Object.values(r.puntajes || {}).some((x) => Object.values(x || {}).some((v) => Number(v) > 0));
+
 // Días desde hoy hasta una fecha ISO (negativo si ya pasó)
 export function diasHasta(fechaISO, hoy = hoyISO()) {
   const a = parseFecha(hoy); const b = parseFecha(fechaISO);
@@ -11,9 +23,10 @@ export function diasHasta(fechaISO, hoy = hoyISO()) {
 
 // Resultado de un ciclo: puntos por patrulla (con desglose), extras y participación individual.
 // Es lo que se archiva cuando el ciclo termina.
-export function resultadoCiclo(c, { reuniones = [], extras = [], patrullas = [], protagonistas = [], config } = {}) {
-  const rs = reuniones.filter((r) => r.cicloId === c.id);
-  const es = extras.filter((e) => e.cicloId === c.id);
+export function resultadoCiclo(c, { reuniones = [], extras = [], patrullas = [], protagonistas = [], ciclos = [], config } = {}) {
+  const todos = ciclos.some((x) => x.id === c.id) ? ciclos : [...ciclos, c];
+  const rs = delCiclo(reuniones, c, todos);
+  const es = delCiclo(extras, c, todos);
   const pats = patrullas.map((pa) => {
     const acc = { crit: Object.fromEntries(CRITERIOS.map((k) => [k.key, 0])), lugar: 0, asistencia: 0, inspeccion: 0, general: Object.fromEntries(CATEGORIAS.map((k) => [k.key, 0])) };
     for (const r of rs) {
