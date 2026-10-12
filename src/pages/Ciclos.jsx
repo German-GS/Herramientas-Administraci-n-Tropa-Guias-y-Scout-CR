@@ -59,9 +59,24 @@ export default function Ciclos({ abrirCiclo, limpiarCiclo, activa = true }) {
   }
 
   const borrar = async (c) => {
-    const usados = delCiclo(reuniones, c, ciclos).length > 0 || delCiclo(extras, c, ciclos).length > 0;
-    if (usados) return alert('Este ciclo tiene reuniones o puntos asociados; no se puede borrar.');
-    if (confirm(`¿Borrar ${etiquetaCiclo(c)}?`)) await deleteDoc(ref('ciclos', c.id));
+    const rs = delCiclo(reuniones, c, ciclos);
+    const es = delCiclo(extras, c, ciclos);
+    if (!rs.length && !es.length) {
+      if (confirm(`¿Borrar ${etiquetaCiclo(c)}?`)) await deleteDoc(ref('ciclos', c.id));
+      return;
+    }
+    // Tiene reuniones o puntos extra: se pasan a otro ciclo (el de las mismas fechas, si hay) antes de borrarlo
+    const otros = ciclos.filter((o) => o.id !== c.id);
+    const solapa = (o) => o.inicio <= (c.fin || '9999') && (o.fin || '9999') >= c.inicio;
+    const destino = otros.find((o) => o.inicio === c.inicio && o.fin === c.fin) || otros.find(solapa) || null;
+    if (!destino) return alert(`Este ciclo tiene ${rs.length} reunión(es) y ${es.length} punto(s) extra, y no hay otro ciclo con esas fechas para pasarlos. Creá primero el ciclo al que pertenecen.`);
+    const fechas = `${formatoFecha(destino.inicio)} – ${destino.fin ? formatoFecha(destino.fin) : 'en curso'}`;
+    if (!confirm(`«${etiquetaCiclo(c)}» tiene ${rs.length} reunión(es) y ${es.length} punto(s) extra.\n\n¿Pasarlos a «${etiquetaCiclo(destino)}» (${fechas}) y borrar este ciclo? No se pierde ningún puntaje.`)) return;
+    const lote = writeBatch(db);
+    rs.forEach((r) => lote.update(ref('reuniones', r.id), { cicloId: destino.id }));
+    es.forEach((x) => lote.update(ref('puntosExtra', x.id), { cicloId: destino.id }));
+    lote.delete(ref('ciclos', c.id));
+    await lote.commit();
   };
   const hoy = hoyISO();
 
@@ -280,6 +295,8 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
 
   const guardar = async (e) => {
     e?.preventDefault();
+    const gemelo = ciclos.find((o) => o.id !== c?.id && o.inicio === cicloFinal.inicio && (o.fin || '') === (cicloFinal.fin || ''));
+    if (!c && gemelo && !confirm(`Ya existe «${etiquetaCiclo(gemelo)}» con las mismas fechas. ¿Crear otro ciclo igual?`)) return;
     setGuardando(true);
     try {
       let id = c?.id;
