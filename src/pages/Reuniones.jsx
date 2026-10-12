@@ -3,7 +3,7 @@ import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
-import { CATEGORIAS, CRITERIOS, desglosePatrulla, ESTANDAR, ITEMS_INSPECCION, etiquetaCiclo, formatoFecha, hoyISO, listaPuntosLugar, TIPOS_ACTIVIDAD, totalReunionPatrulla } from '../lib/etapas';
+import { CATEGORIAS, CRITERIOS, desglosePatrulla, ESTANDAR, ITEMS_INSPECCION, ordenInspeccion, etiquetaCiclo, formatoFecha, hoyISO, listaPuntosLugar, TIPOS_ACTIVIDAD, totalReunionPatrulla } from '../lib/etapas';
 
 const nuevoId = () => Math.random().toString(36).slice(2, 9);
 // Toda reunión lleva inicio, inspección y cierre
@@ -385,8 +385,8 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, activa = true, p
             </p>
             {protagonistas.filter((x) => x.activo !== false).length === 0 && <p className="alert media">Registrá primero a los protagonistas en «Expedientes» y asignales patrulla.</p>}
             {patrullas.map((p) => {
-              const miembros = protagonistas.filter((x) => x.activo !== false && x.patrullaId === p.id)
-                .sort((a, b) => `${a.nombre} ${a.apellidos}`.localeCompare(`${b.nombre} ${b.apellidos}`));
+              const miembros = protagonistas.filter((x) => x.activo !== false && x.patrullaId === p.id);
+              const ordenados = ordenInspeccion(miembros);
               const d = desglosePatrulla(f, p.id, config);
               const nPres = miembros.filter((m) => f.asistencia?.[m.id] === p.id).length;
               return (
@@ -408,12 +408,12 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, activa = true, p
                             </tr>
                           </thead>
                           <tbody>
-                            {miembros.map((m) => {
+                            {ordenados.map((m) => {
                               const pres = f.asistencia?.[m.id] === p.id;
                               const marcados = ITEMS_INSPECCION.filter((i) => pres && f.inspeccion?.[m.id]?.[i.key]).length;
                               return (
                                 <tr key={m.id} style={pres ? null : { opacity: 0.6 }}>
-                                  <td className="titulo" data-label="Protagonista"><strong>{m.nombre} {m.apellidos}</strong>{m.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
+                                  <td className="titulo" data-label="Protagonista"><strong>{m.nombre} {m.apellidos}</strong>{m.cargo === 'Guía de patrulla' || m.cargo === 'Subguía' ? <span className="badge media" style={{ marginLeft: 6 }}>{m.cargo === 'Subguía' ? 'Subguía' : 'Guía'}</span> : null}{m.promesado ? <span className="badge" style={{ marginLeft: 6 }}>Promesado</span> : null}</td>
                                   <td className="c presente" data-label="Presente"><input type="checkbox" checked={pres} onChange={(e) => setPresente(m, p.id, e.target.checked)} aria-label={`${m.nombre} presente`} /></td>
                                   {ITEMS_INSPECCION.map((i) => {
                                     const bloqueado = !pres || (i.soloPromesado && !m.promesado);

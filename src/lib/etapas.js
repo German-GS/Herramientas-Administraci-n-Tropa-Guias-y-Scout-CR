@@ -1,6 +1,13 @@
 // Etapas de progresión de la Tropa (bitácoras AGSCR)
 export const ETAPAS = ['Aventurero', 'Intrépido', 'Pionero', 'Explorador'];
 
+// Orden de la lista de inspección: el guía de patrulla primero, el subguía al final y el resto en orden alfabético
+export function ordenInspeccion(miembros) {
+  const rango = (m) => (m.cargo === 'Guía de patrulla' ? 0 : m.cargo === 'Subguía' ? 2 : 1);
+  const nombre = (m) => `${m.nombre || ''} ${m.apellidos || ''}`;
+  return [...miembros].sort((a, b) => rango(a) - rango(b) || nombre(a).localeCompare(nombre(b)));
+}
+
 export const CARGOS = [
   'Guía de patrulla',
   'Subguía',
