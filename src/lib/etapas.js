@@ -137,7 +137,6 @@ export function alertasDe(p, config = CONFIG_DEFAULT, ref = new Date()) {
   const faltantes = [];
   if (!p.fechaNacimiento) faltantes.push('fecha de nacimiento');
   if (!p.encargado?.nombre || !p.encargado?.telefono) faltantes.push('encargado/teléfono');
-  if (!p.medico?.tipoSangre) faltantes.push('tipo de sangre');
   if (!p.medico?.alergias && !p.medico?.sinAlergias) faltantes.push('alergias');
   if (!p.fechaInicioEtapa) faltantes.push('fecha de inicio de etapa');
   if (faltantes.length) {
@@ -240,7 +239,6 @@ export const CHEQUEOS_EXPEDIENTE = [
   ['ingreso', 'fecha de ingreso', (p) => !!p.fechaIngreso],
   ['nacimiento', 'fecha de nacimiento', (p) => !!p.fechaNacimiento],
   ['encargado', 'encargado y teléfono', (p) => !!(p.encargado?.nombre && p.encargado?.telefono)],
-  ['sangre', 'tipo de sangre', (p) => !!p.medico?.tipoSangre],
   ['alergias', 'alergias', (p) => !!(p.medico?.alergias || p.medico?.sinAlergias)],
 ];
 export const faltantesExpediente = (p) => CHEQUEOS_EXPEDIENTE.filter(([, , ok]) => !ok(p)).map(([k, etiqueta]) => ({ k, etiqueta }));

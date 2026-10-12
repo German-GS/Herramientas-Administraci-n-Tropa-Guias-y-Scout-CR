@@ -10,7 +10,7 @@ const VACIO = {
   nombre: '', apellidos: '', fechaNacimiento: '', patrullaId: '', cargo: 'Integrante',
   etapa: ETAPAS[0], fechaIngreso: hoyISO(), fechaInicioEtapa: hoyISO(),
   encargado: { nombre: '', telefono: '', parentesco: '' },
-  medico: { tipoSangre: '', alergias: '', sinAlergias: false, condiciones: '', medicamentos: '' },
+  medico: { alergias: '', sinAlergias: false, condiciones: '', medicamentos: '' },
   cedula: '', correo: '', etapaConfirmada: true, recordatorios: [], brujulas: {}, notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
 };
 
@@ -249,12 +249,6 @@ function Expediente({ p, patrullas, config, activa = true, onCerrar }) {
       <fieldset>
         <legend>Ficha médica</legend>
         <div className="form">
-          <label>Tipo de sangre
-            <select value={f.medico.tipoSangre} onChange={(x) => setSub('medico', 'tipoSangre', x.target.value)}>
-              <option value="">—</option>
-              {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'Desconocido'].map((t) => <option key={t}>{t}</option>)}
-            </select>
-          </label>
           <label className="full">Alergias
             <input value={f.medico.alergias} disabled={f.medico.sinAlergias} onChange={(x) => setSub('medico', 'alergias', x.target.value)} />
             <span className="muted"><input type="checkbox" checked={f.medico.sinAlergias} onChange={(x) => setSub('medico', 'sinAlergias', x.target.checked)} /> No tiene alergias conocidas</span>
