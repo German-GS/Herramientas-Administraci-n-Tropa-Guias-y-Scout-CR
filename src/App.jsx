@@ -31,6 +31,8 @@ const ICONOS = {
   ajustes: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4',
 };
 
+const MANTENER = ['reuniones', 'ciclos', 'protagonistas', 'membresia'];
+
 const TABS = [
   { key: 'inicio', label: 'Inicio', comp: Dashboard },
   { key: 'reuniones', label: 'Reuniones', comp: Reuniones },
@@ -88,6 +90,8 @@ function Panel({ user, acceso, onBloquear }) {
   const [menu, setMenu] = useState(false);
   const [abrirExpediente, setAbrirExpediente] = useState(null);
   const [abrirCiclo, setAbrirCiclo] = useState(null);
+  const [abrirReunion, setAbrirReunion] = useState(null);
+  const [visitadas, setVisitadas] = useState(() => new Set(['inicio']));
   const [bio, setBio] = useState(() => !!bioActivada(user.uid));
   const [bioOk, setBioOk] = useState(false);
   const [bioMsg, setBioMsg] = useState('');
@@ -101,11 +105,13 @@ function Panel({ user, acceso, onBloquear }) {
   const desactivar = () => { quitarBio(); setBio(false); setBioMsg(''); };
   const tabs = TABS.filter((t) => !t.soloJefe || esJefe);
   const actual = tabs.find((t) => t.key === tab) || tabs[0];
-  const Actual = actual.comp;
+  // Las pantallas donde se edita se quedan abiertas en segundo plano: se puede ir a otra sección y volver sin perder el lugar
+  useEffect(() => { setVisitadas((v) => (v.has(actual.key) ? v : new Set(v).add(actual.key))); }, [actual.key]);
 
   const ir = (key) => { setTab(key); setMenu(false); if (key !== 'protagonistas') setAbrirExpediente(null); };
   const irAExpediente = (id) => { setAbrirExpediente(id); setTab('protagonistas'); };
   const irAlCiclo = (id) => { setAbrirCiclo(id); setTab('ciclos'); };
+  const irAReunion = (id) => { setAbrirReunion(id); setTab('reuniones'); };
   const irATab = (k) => { setMenu(false); setTab(k); };
 
   return (
@@ -158,9 +164,19 @@ function Panel({ user, acceso, onBloquear }) {
           )}
         </aside>
         <main className="content">
-          <Actual irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
-            limpiarExpediente={() => setAbrirExpediente(null)} irAlCiclo={irAlCiclo} irATab={irATab} abrirCiclo={abrirCiclo}
-            limpiarCiclo={() => setAbrirCiclo(null)} esJefe={esJefe} />
+          {tabs.map((t) => {
+            const activa = t.key === actual.key;
+            if (!activa && !(MANTENER.includes(t.key) && visitadas.has(t.key))) return null;
+            const Comp = t.comp;
+            return (
+              <div key={t.key} hidden={!activa}>
+                <Comp activa={activa} irAExpediente={irAExpediente} abrirExpediente={abrirExpediente}
+                  limpiarExpediente={() => setAbrirExpediente(null)} irAlCiclo={irAlCiclo} irAReunion={irAReunion} irATab={irATab}
+                  abrirCiclo={abrirCiclo} limpiarCiclo={() => setAbrirCiclo(null)}
+                  abrirReunion={abrirReunion} limpiarReunion={() => setAbrirReunion(null)} esJefe={esJefe} />
+              </div>
+            );
+          })}
         </main>
       </div>
     </GrupoProvider>

@@ -38,7 +38,10 @@ h2 { font-size: 1.35rem; } h3 { font-size: 1.05rem; }
 .btn:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--tropa); outline-offset: 1px; }
 .btn.danger { color: var(--red); border-color: #f2c4ca; }
 .btn.small { padding: .3rem .6rem; font-size: .82rem; }
-.btn.ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+.btn.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+.btn.ghost:hover { color: var(--navy); border-color: var(--navy); }
+.sidebar .btn.ghost { color: #fff; border-color: rgba(255,255,255,.35); }
+.sidebar .btn.ghost:hover { color: #fff; background: rgba(255,255,255,.1); border-color: #fff; }
 .btn:disabled { opacity: .5; cursor: default; }
 
 label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: .2rem; }
@@ -411,3 +414,13 @@ form.card > fieldset:last-of-type { margin-bottom: 1.2rem; }
 .desglose > summary { cursor: pointer; color: var(--tropa-dark); font-weight: 600; padding: .3rem 0; }
 .lista-extras { margin: .3rem 0 0 1rem; padding: 0; }
 .lista-extras li { margin-bottom: .2rem; }
+
+/* Barra de acciones fija abajo mientras se edita (no hay que bajar hasta el final para guardar) */
+.barra-acciones { position: sticky; bottom: 0; z-index: 6; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between;
+  margin: 1.2rem -1rem -1rem; padding: .7rem 1rem calc(.7rem + env(safe-area-inset-bottom)); background: rgba(255,255,255,.97);
+  border-top: 1px solid var(--line); box-shadow: 0 -6px 14px rgba(44,18,97,.08); border-radius: 0 0 12px 12px; }
+.barra-acciones .estado { font-size: .85rem; color: var(--muted); flex-basis: 100%; }
+.barra-acciones .estado.sucio { color: #8a5a00; font-weight: 600; }
+.barra-acciones .estado.ok { color: var(--tropa-dark); font-weight: 600; }
+
+.tag-reu { background: #1f6f5b; }

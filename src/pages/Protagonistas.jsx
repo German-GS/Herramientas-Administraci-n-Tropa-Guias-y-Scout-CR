@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useGrupo } from '../lib/grupo.jsx';
 import { useConfig } from '../lib/useConfig';
+import { useAtras } from '../lib/useAtras.js';
 import { alertasDe, BRUJULAS, brujulaActual, CARGOS, ESTADOS_BRUJULA, ITEMS_INSPECCION, edad, ETAPAS, formatoFecha, hoyISO, nuevoIdLocal, siguienteEtapa } from '../lib/etapas';
 
 const VACIO = {
@@ -13,7 +14,7 @@ const VACIO = {
   cedula: '', correo: '', etapaConfirmada: true, recordatorios: [], brujulas: {}, notas: '', activo: true, promesado: false, fechaPromesa: '', fechaSalida: '', motivoSalida: '', historialEtapas: [],
 };
 
-export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
+export default function Protagonistas({ abrirExpediente, limpiarExpediente, activa = true }) {
   const { docs: protagonistas } = useCollection('protagonistas', 'nombre');
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const [config] = useConfig();
@@ -29,7 +30,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
   if (sel) {
     const actual = sel === 'nuevo' ? null : protagonistas.find((p) => p.id === sel);
     if (sel !== 'nuevo' && !actual) return <div className="card">Cargando expediente…</div>;
-    return <Expediente key={sel} p={actual} patrullas={patrullas} config={config} onCerrar={cerrar} />;
+    return <Expediente key={sel} p={actual} patrullas={patrullas} config={config} activa={activa} onCerrar={cerrar} />;
   }
 
   const lista = protagonistas
@@ -74,7 +75,7 @@ export default function Protagonistas({ abrirExpediente, limpiarExpediente }) {
   );
 }
 
-function Expediente({ p, patrullas, config, onCerrar }) {
+function Expediente({ p, patrullas, config, activa = true, onCerrar }) {
   const { col, ref } = useGrupo();
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
   const [f, setF] = useState(() => ({
@@ -88,6 +89,14 @@ function Expediente({ p, patrullas, config, onCerrar }) {
   const agregarRec = (texto) => setF((x) => ({ ...x, recordatorios: [...(x.recordatorios || []), { id: nuevoIdLocal(), texto, fecha: '', hecho: false }] }));
   const setBruj = (k, cambios) => setF((x) => ({ ...x, brujulas: { ...(x.brujulas || {}), [k]: { ...(x.brujulas?.[k] || {}), ...cambios } } }));
   const setSub = (g, k, v) => setF((x) => ({ ...x, [g]: { ...x[g], [k]: v } }));
+
+  // Cambios sin guardar: se pide confirmación antes de salir (botón, atrás del navegador o gesto del celular)
+  const baseline = useRef(null);
+  if (baseline.current === null) baseline.current = JSON.stringify(f);
+  const sucio = JSON.stringify(f) !== baseline.current;
+  const confirmarSalida = () => !sucio || confirm('Hay cambios sin guardar en este expediente. ¿Salir sin guardarlos?');
+  const volver = () => { if (confirmarSalida()) onCerrar(); };
+  useAtras(activa, onCerrar, confirmarSalida);
 
   const guardar = async (e) => {
     e?.preventDefault();
@@ -125,7 +134,7 @@ function Expediente({ p, patrullas, config, onCerrar }) {
     <form className="card" onSubmit={guardar}>
       <div className="row between">
         <h2>{p ? `${f.nombre} ${f.apellidos}` : 'Nuevo protagonista'}{e !== null ? <span className="muted"> · {e} años</span> : null}</h2>
-        <button type="button" className="btn ghost" onClick={onCerrar}>← Volver</button>
+        <button type="button" className="btn" onClick={volver}>← Volver</button>
       </div>
 
       {alertas.filter((a) => a.tipo !== 'recordatorio').map((a, i) => <div key={i} className={`alert ${a.nivel}`}>{a.texto}</div>)}
@@ -276,7 +285,11 @@ function Expediente({ p, patrullas, config, onCerrar }) {
       </fieldset>
 
       <div className="row between acciones-form">
-        <button className="btn primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar expediente'}</button>
+        <div className="row">
+          <button className="btn primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar expediente'}</button>
+          <button type="button" className="btn" onClick={volver}>← Volver al listado</button>
+          {sucio && <span className="muted">Cambios sin guardar</span>}
+        </div>
         {p && <button type="button" className="btn danger" onClick={borrar}>Borrar</button>}
       </div>
     </form>

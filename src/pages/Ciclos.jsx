@@ -9,8 +9,9 @@ import TablaEditable from '../components/TablaEditable.jsx';
 import IconoOjo from '../components/IconoOjo.jsx';
 import CicloDocumento, { filasProgresion, totalesAreas } from '../components/CicloDocumento.jsx';
 import { borrarBorrador, guardarBorrador, leerBorrador, pendientesCiclo, resumenPendientes, seccionesPendientes } from '../lib/cicloCompleto.js';
+import { useAtras } from '../lib/useAtras.js';
 
-export default function Ciclos({ abrirCiclo, limpiarCiclo }) {
+export default function Ciclos({ abrirCiclo, limpiarCiclo, activa = true }) {
   const { col, ref } = useGrupo();
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
@@ -52,7 +53,7 @@ export default function Ciclos({ abrirCiclo, limpiarCiclo }) {
 
   if (sel) {
     const c = sel === 'nuevo' ? null : ciclos.find((x) => x.id === sel);
-    return <EditorCiclo key={sel + (vistaDirecta ? 'v' : '') + (base ? 'b' : '')} c={c} base={base} avisos={avisos} ciclos={ciclos} reuniones={reuniones} extras={extras} vistaInicial={vistaDirecta}
+    return <EditorCiclo key={sel + (vistaDirecta ? 'v' : '') + (base ? 'b' : '')} c={c} base={base} avisos={avisos} ciclos={ciclos} reuniones={reuniones} extras={extras} vistaInicial={vistaDirecta} activa={activa}
       onCerrar={() => { setSel(null); setVistaDirecta(false); setBase(null); setAvisos(null); }} />;
   }
 
@@ -158,7 +159,7 @@ function Enfasis({ tot }) {
   );
 }
 
-function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial = false, onCerrar }) {
+function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial = false, activa = true, onCerrar: cerrarEditor }) {
   const { gid, col, ref, grupo, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
@@ -198,6 +199,10 @@ function EditorCiclo({ c, base, avisos, ciclos, reuniones, extras, vistaInicial 
     }, 700);
     return () => clearTimeout(t);
   }, [f, gid, c?.id]);
+  // Al salir (botón, atrás del navegador o gesto) se conserva lo escrito como borrador
+  const conservarBorrador = () => { if (JSON.stringify(f) !== baseline.current) guardarBorrador(gid, c?.id, f); return true; };
+  const onCerrar = () => { conservarBorrador(); cerrarEditor(); };
+  useAtras(activa, onCerrar, conservarBorrador);
   const descartarBorrador = () => {
     borrarBorrador(gid, c?.id);
     setF(construir(c || base || {}));

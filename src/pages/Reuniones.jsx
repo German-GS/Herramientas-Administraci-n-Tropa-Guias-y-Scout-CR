@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useCollection } from '../lib/useCollection';
 import { useConfig } from '../lib/useConfig';
@@ -16,13 +16,15 @@ const porHora = (a, b) => (a.hora || '99:99').localeCompare(b.hora || '99:99');
 import TablaEditable from '../components/TablaEditable.jsx';
 import IconoOjo from '../components/IconoOjo.jsx';
 import { importarMachote } from '../lib/importarMachote';
+import { borrarBorradorDe, guardarBorradorDe, leerBorradorDe } from '../lib/borradores.js';
+import { useAtras } from '../lib/useAtras.js';
 import ProgramaReunion from '../components/ProgramaReunion.jsx';
 
 function cicloDeFecha(ciclos, fecha) {
   return ciclos.find((c) => c.inicio <= fecha && (!c.fin || c.fin >= fecha))?.id || '';
 }
 
-export default function Reuniones() {
+export default function Reuniones({ abrirReunion, limpiarReunion, activa = true }) {
   const { docs: reuniones } = useCollection('reuniones', 'fecha');
   const { docs: patrullas } = useCollection('patrullas', 'nombre');
   const { docs: ciclos } = useCollection('ciclos', 'inicio');
@@ -51,10 +53,18 @@ export default function Reuniones() {
     } finally { setImportando(false); }
   };
 
+  // Llegada desde un recordatorio del Inicio
+  useEffect(() => {
+    if (!abrirReunion) return;
+    setCopia(null); setAvisos(null); setVistaDirecta(false); setSel(abrirReunion === 'nuevo' ? 'nueva' : abrirReunion);
+    limpiarReunion?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirReunion]);
+
   if (sel) {
     const r = sel === 'nueva' ? null : reuniones.find((x) => x.id === sel);
     return <EditorReunion key={sel + (copia ? 'c' : '') + (vistaDirecta ? 'v' : '')} r={r} base={copia} patrullas={patrullas} ciclos={ciclos}
-      avisos={avisos} vistaInicial={vistaDirecta} onCerrar={() => { setSel(null); setCopia(null); setAvisos(null); setVistaDirecta(false); }} />;
+      avisos={avisos} vistaInicial={vistaDirecta} activa={activa} onCerrar={() => { setSel(null); setCopia(null); setAvisos(null); setVistaDirecta(false); }} />;
   }
 
   const duplicar = (r) => {
@@ -126,19 +136,24 @@ const SECCIONES = [
   ['puntajes', 'Puntajes'],
 ];
 
-function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclos, onCerrar }) {
-  const { col, ref, miembro } = useGrupo();
+function EditorReunion({ r, base, avisos, vistaInicial = false, activa = true, patrullas, ciclos, onCerrar }) {
+  const { gid, col, ref, miembro } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
   const max = Number(config.puntajeMaxCategoria) || 10;
   const [seccion, setSeccion] = useState('programa');
   const [vista, setVista] = useState(vistaInicial);
   const [guardando, setGuardando] = useState(false);
+  const [docId, setDocId] = useState(r?.id || null);
+  const [guardadoEn, setGuardadoEn] = useState(0);
+  const baseline = useRef(null);
+  const borradorInicial = useRef(base && !r ? null : leerBorradorDe('reunion', gid, r?.id)).current;
+  const [restaurado, setRestaurado] = useState(!!borradorInicial?.f);
 
-  const [f, setF] = useState(() => {
-    const fecha = r?.fecha || base?.fecha || hoyISO();
+  const construir = (origen) => {
+    const fecha = origen?.fecha || hoyISO();
     const activos = protagonistas.filter((p) => p.activo !== false).length;
-    const { id, ...datos } = r || base || {};
+    const { id, ...datos } = origen || {};
     return {
       lugar: '', horaInicio: '', horaFin: '', encargado: miembro?.nombre || '',
       participantes: activos ? `${activos} protagonistas — ${patrullas.length} patrullas` : '',
@@ -147,7 +162,26 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
       actividades: (datos.actividades?.length ? datos.actividades : (r ? [] : FILAS_BASE().map((a) => ({ ...a, encargado: miembro?.nombre || '' })))).map((a) => (a.id ? a : { ...a, id: nuevoId() })),
       cicloId: datos.cicloId ?? cicloDeFecha(ciclos, fecha),
     };
+  };
+  const [f, setF] = useState(() => {
+    const guardado = construir(r || base || {});
+    // referencia para saber si hay cambios sin guardar (una importación o copia siempre cuenta como pendiente)
+    baseline.current = base && !r ? '' : JSON.stringify(guardado);
+    return borradorInicial?.f ? { ...guardado, ...borradorInicial.f } : guardado;
   });
+  const sucio = JSON.stringify(f) !== baseline.current;
+
+  // Autoguardado local: lo que se va escribiendo no se pierde aunque se salga a otra pantalla
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (JSON.stringify(f) === baseline.current) borrarBorradorDe('reunion', gid, docId); else guardarBorradorDe('reunion', gid, docId, f);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [f, gid, docId]);
+  const conservarBorrador = () => { if (JSON.stringify(f) !== baseline.current) guardarBorradorDe('reunion', gid, docId, f); return true; };
+  const volver = () => { conservarBorrador(); onCerrar(); };
+  useAtras(activa, volver, conservarBorrador);
+  const descartarBorrador = () => { borrarBorradorDe('reunion', gid, docId); setF(construir(r || base || {})); setRestaurado(false); };
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   useEffect(() => {
     const activos = protagonistas.filter((p) => p.activo !== false).length;
@@ -171,8 +205,8 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
   const todosPresentes = (pid, miembros) => setF((x) => ({ ...x, asistencia: { ...x.asistencia, ...Object.fromEntries(miembros.map((m) => [m.id, pid])) } }));
   const setAct = (i, k, v) => set('actividades', f.actividades.map((a, j) => (j === i ? { ...a, [k]: v } : a)));
 
-  const guardar = async (e) => {
-    e?.preventDefault();
+  const guardar = async ({ salir = false } = {}) => {
+    if (!f.fecha) return alert('Elegí la fecha de la reunión.');
     setGuardando(true);
     const limpio = {};
     for (const p of patrullas) {
@@ -198,14 +232,20 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
       ? `${nPres} protagonistas — ${new Set(Object.values(asistencia)).size} patrullas` : f.participantes;
     const data = { ...f, participantes, puntajes: limpio, juegos, asistencia, inspeccion };
     try {
-      if (r) await updateDoc(ref('reuniones', r.id), data);
-      else await addDoc(col('reuniones'), data);
-      onCerrar();
+      let id = docId;
+      if (id) await updateDoc(ref('reuniones', id), data);
+      else { id = (await addDoc(col('reuniones'), data)).id; setDocId(id); }
+      borrarBorradorDe('reunion', gid, null); borrarBorradorDe('reunion', gid, id);
+      baseline.current = JSON.stringify(f);
+      setGuardadoEn(Date.now()); setRestaurado(false);
+      if (salir) onCerrar();
+    } catch (err) {
+      alert(`No se pudo guardar la reunión (${err.code || err.message}). Tus cambios siguen aquí y en un borrador.`);
     } finally { setGuardando(false); }
   };
 
   const borrar = async () => {
-    if (confirm('¿Borrar esta reunión y sus puntajes?')) { await deleteDoc(ref('reuniones', r.id)); onCerrar(); }
+    if (confirm('¿Borrar esta reunión y sus puntajes?')) { await deleteDoc(ref('reuniones', docId)); borrarBorradorDe('reunion', gid, docId); onCerrar(); }
   };
 
   if (vista) {
@@ -213,7 +253,7 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
       <div className="card">
         <div className="row between no-print">
           <div className="row">
-            <button className="btn" onClick={onCerrar}>← Reuniones</button>
+            <button className="btn" onClick={volver}>← Reuniones</button>
             <button className="btn" onClick={() => setVista(false)}>Editar</button>
           </div>
           <button className="btn primary" onClick={() => window.print()}>Imprimir / guardar PDF</button>
@@ -224,11 +264,17 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
   }
 
   return (
-    <form className="card" onSubmit={guardar}>
+    <form className="card" noValidate onSubmit={(e) => { e.preventDefault(); guardar({ salir: true }); }}>
       <div className="row between">
-        <h2>{r ? `Reunión del ${formatoFecha(r.fecha)}` : 'Nuevo programa de reunión'}</h2>
-        <button type="button" className="btn" onClick={onCerrar}>← Volver</button>
+        <h2>{docId ? `Reunión del ${formatoFecha(f.fecha)}` : 'Nuevo programa de reunión'}</h2>
+        <button type="button" className="btn" onClick={volver}>← Volver</button>
       </div>
+      {restaurado && (
+        <div className="alert media" role="status">
+          <strong>Recuperamos lo que tenías sin guardar.</strong> Revisalo y pulsá «Guardar».
+          <button type="button" className="link" style={{ marginLeft: 8 }} onClick={descartarBorrador}>Descartar el borrador</button>
+        </div>
+      )}
 
       {avisos && (
         <div className={avisos.length ? 'alert media' : 'alert info'} role="status">
@@ -422,7 +468,7 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
                             <td className="titulo" data-label="Patrulla"><span className="dot" style={{ background: p.color }} /> <strong>{p.nombre}</strong></td>
                             {CRITERIOS.map((c) => (
                               <td key={c.key} data-label={`${c.label} (1–${max})`}>
-                                <input type="number" min={1} max={max} inputMode="numeric" style={{ width: 64 }} aria-label={`${c.label} de ${p.nombre}`}
+                                <input type="number" min={0} max={max} inputMode="numeric" style={{ width: 64 }} aria-label={`${c.label} de ${p.nombre}`}
                                   value={j[c.key] ?? ''} onChange={(e) => setJuego(a.id, p.id, c.key, e.target.value)} />
                               </td>
                             ))}
@@ -470,12 +516,16 @@ function EditorReunion({ r, base, avisos, vistaInicial = false, patrullas, ciclo
         )
       )}
 
-      <div className="row between" style={{ marginTop: 14 }}>
-        <div className="row">
-          <button className="btn primary" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar reunión'}</button>
-          <button type="button" className="btn" onClick={() => setVista(true)}>Ver / imprimir programa</button>
+      <div className="barra-acciones">
+        <div className={sucio ? 'estado sucio' : guardadoEn ? 'estado ok' : 'estado'} role="status">
+          {sucio ? 'Cambios sin guardar. Si sales, se conservan como borrador.' : guardadoEn ? 'Guardado ✓' : 'Podés completar los puntajes poco a poco: nada es obligatorio.'}
         </div>
-        {r && <button type="button" className="btn danger" onClick={borrar}>Borrar</button>}
+        <div className="row">
+          <button type="button" className="btn primary" disabled={guardando} onClick={() => guardar()}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+          <button type="button" className="btn" disabled={guardando} onClick={() => guardar({ salir: true })}>Guardar y volver</button>
+          <button type="button" className="btn" onClick={() => setVista(true)}>Ver / imprimir</button>
+        </div>
+        {docId && <button type="button" className="btn danger" onClick={borrar}>Borrar</button>}
       </div>
     </form>
   );

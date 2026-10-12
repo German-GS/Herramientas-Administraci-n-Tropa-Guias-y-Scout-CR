@@ -5,6 +5,7 @@ import { useConfig } from '../lib/useConfig';
 import { useGrupo } from '../lib/grupo.jsx';
 import { listarBorradores, pendientesCiclo, resumenPendientes } from '../lib/cicloCompleto.js';
 import { cicloVigente, diasHasta } from '../lib/puntajes.js';
+import { listarBorradoresDe } from '../lib/borradores.js';
 import { alertasDe, CATEGORIAS, CRITERIOS, desglosePatrulla, etiquetaCiclo, formatoFecha, hoyISO } from '../lib/etapas';
 
 const ORDEN_NIVEL = { alta: 0, media: 1, info: 2 };
@@ -36,7 +37,7 @@ function Barras({ datos, valor }) {
   });
 }
 
-export default function Dashboard({ irAExpediente, irAlCiclo, irATab }) {
+export default function Dashboard({ irAExpediente, irAlCiclo, irAReunion, irATab }) {
   const { gid, ref } = useGrupo();
   const [config] = useConfig();
   const { docs: protagonistas } = useCollection('protagonistas');
@@ -71,6 +72,11 @@ export default function Dashboard({ irAExpediente, irAlCiclo, irATab }) {
   // Recordatorios del ciclo de programa: borradores sin guardar y ciclos con secciones pendientes
   const alertasCiclo = useMemo(() => {
     const out = [];
+    // Reuniones a medias (puntajes o programa sin guardar)
+    for (const b of listarBorradoresDe('reunion', gid)) {
+      const hace = b.ts ? new Date(b.ts).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      out.push({ tipo: 'reunion', nivel: 'alta', nombre: `Reunión del ${formatoFecha(b.f.fecha)}`, texto: `Tenés cambios sin guardar${hace ? ` (${hace})` : ''}. Abrila y pulsá «Guardar».`, accion: () => irAReunion?.(b.id) });
+    }
     const borradores = listarBorradores(gid);
     for (const b of borradores) {
       const guardado = ciclos.find((x) => x.id === b.id);
@@ -190,6 +196,7 @@ export default function Dashboard({ irAExpediente, irAlCiclo, irATab }) {
             <div key={i} className={`alert ${a.nivel} clickable`} onClick={() => (a.accion ? a.accion() : irAExpediente(a.id))}>
               {a.tipo === 'ciclo' && <span className="tag-ciclo">Ciclo de programa</span>}
               {a.tipo === 'recordatorio' && <span className="tag-ciclo tag-rec">Recordatorio</span>}
+              {a.tipo === 'reunion' && <span className="tag-ciclo tag-reu">Reunión</span>}
               {a.tipo === 'brújula' && <span className="tag-ciclo tag-bruj">Brújula</span>} <strong>{a.nombre}</strong> — {a.texto}
               {a.tipo === 'recordatorio' && <button type="button" className="btn small accion" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); marcarHecho(a); }}>✓ Hecho</button>}
               {a.tipo === 'brújula' && <button type="button" className="btn small accion" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); entregarBrujula(a); }}>✓ Entregada</button>}
